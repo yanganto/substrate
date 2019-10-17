@@ -20,7 +20,6 @@
 //! time during which certain events can and/or must occur.  This crate
 //! provides generic functionality for slots.
 
-#![deny(warnings)]
 #![forbid(unsafe_code, missing_docs)]
 
 mod slots;
@@ -121,6 +120,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 		let (timestamp, slot_number, slot_duration) =
 			(slot_info.timestamp, slot_info.number, slot_info.duration);
 
+		dbg!(timestamp, slot_number, slot_duration);
 		let epoch_data = match self.epoch_data(&chain_head, slot_number) {
 			Ok(epoch_data) => epoch_data,
 			Err(err) => {
@@ -180,6 +180,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 
 		let remaining_duration = slot_info.remaining_duration();
 		let logs = self.pre_digest_data(slot_number, &claim);
+		dbg!(remaining_duration);
 
 		// deadline our production to approx. the end of the slot
 		let proposal_work = futures::future::select(
@@ -207,8 +208,10 @@ pub trait SimpleSlotWorker<B: BlockT> {
 			// minor hack since we don't have access to the timestamp
 			// that is actually set by the proposer.
 			let slot_after_building = SignedDuration::default().slot_now(slot_duration);
+			dbg!(slot_after_building, slot_number);
 			if slot_after_building != slot_number {
 				info!("Discarding proposal for slot {}; block production took too long", slot_number);
+				panic!("KABOOM");
 				// If the node was compiled with debug, tell the user to use release optimizations.
 				#[cfg(build_type="debug")]
 				info!("Recompile your node in `--release` mode to mitigate this problem.");
@@ -426,5 +429,162 @@ impl<T: Clone> SlotDuration<T> {
 	/// Returns slot data value.
 	pub fn get(&self) -> T {
 		self.0.clone()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use std::{time, thread, marker::PhantomData, collections::HashMap};
+	use sr_primitives::traits::{Block as BlockT, DigestFor, Header as HeaderT};
+	use sr_primitives::generic::Digest;
+	use primitives::H256;
+	use consensus_common::{error, BlockOrigin, ForkChoiceStrategy};
+	use consensus_common::{BlockCheckParams, BlockImportParams, ImportResult, import_queue::CacheKeyId};
+	use futures::future;
+	use inherents::InherentData;
+
+	#[derive(Copy, Clone, Default)]
+	struct DummySyncOracle;
+	impl SyncOracle for DummySyncOracle {
+		fn is_major_syncing(&mut self) -> bool { false }
+		fn is_offline(&mut self) -> bool { false }
+	}
+
+	#[derive(Copy, Clone, Default)]
+	struct DummyBlockImport;
+	// TODO: I can get rid of B and just implement this stuff for the block that I use.
+	impl<B: BlockT> BlockImport<B> for DummyBlockImport {
+		type Error = error::Error;
+		fn check_block(&mut self, _: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> { unimplemented!(); }
+		fn import_block(&mut self, _: BlockImportParams<B>, _: HashMap<CacheKeyId, Vec<u8>>) -> Result<ImportResult, Self::Error> { unimplemented!() }
+	}
+
+	#[derive(Copy, Clone, Default)]
+	struct SlowProposer<T>(PhantomData<T>);
+	impl<B, H> Proposer<B> for SlowProposer<H> where
+		H: HeaderT<Number=u64, Hash=H256>,
+		B: BlockT<Hash=H256, Header=H>,
+	{
+		type Error = error::Error;
+		type Create = future::Ready<Result<B, error::Error>>;
+
+		fn propose(
+			&mut self,
+			_inherent_data: InherentData,
+			_inherent_digests: DigestFor<B>,
+			_max_duration: time::Duration,
+		) -> Self::Create {
+			// let deadline = (self.now)() + max_duration - max_duration / 3;
+			let header = H::new(
+				0,
+				H256::default(),
+				H256::default(),
+				H256::default(),
+				Digest::default()
+			);
+			let some_block = B::new(header, vec![]);
+			let inner = Ok(some_block);
+			println!("Sleeping");
+			thread::sleep(time::Duration::from_secs(5));
+			println!("Done Sleeping");
+			futures::future::ready(inner)
+		}
+	}
+
+	struct DummySlotWorker<H> {
+		__phantom_item: PhantomData<H>,
+		oracle: DummySyncOracle,
+		block_import: DummyBlockImport,
+	}
+	impl<H> DummySlotWorker<H> {
+		fn new() -> Self {
+			Self {
+				__phantom_item: PhantomData::<H>,
+				oracle: DummySyncOracle,
+				block_import: DummyBlockImport
+			}
+		}
+	}
+
+	impl<B, H> SimpleSlotWorker<B> for DummySlotWorker<H> where
+		H: HeaderT<Number=u64, Hash=H256>,
+		B: BlockT<Hash=H256, Header=H>,
+	{
+		type BlockImport = DummyBlockImport;
+		type Claim = ();
+		type EpochData = Vec<u64>;
+		type SyncOracle = DummySyncOracle;
+		type Proposer = SlowProposer<H>;
+
+		fn logging_target(&self) -> &'static str { "dummy" }
+		fn block_import(&self) -> Arc<Mutex<Self::BlockImport>> {
+			Arc::from(Mutex::from(self.block_import))
+		}
+		fn epoch_data(&self, _: &B::Header, _: u64) -> Result<Self::EpochData, error::Error> {
+			Ok(Default::default())
+		}
+		fn authorities_len(&self, _: &Self::EpochData) -> usize {
+			Default::default()
+		}
+		fn claim_slot(&self, _: &B::Header, _: u64, _: &Self::EpochData) -> Option<Self::Claim> {
+			Some(Default::default())
+		}
+		fn pre_digest_data(&self, _: u64, _: &Self::Claim) -> Vec<sr_primitives::DigestItem<B::Hash>> {
+			Default::default()
+		}
+		fn force_authoring(&self) -> bool {
+			false
+		}
+		fn sync_oracle(&mut self) -> &mut Self::SyncOracle {
+			&mut self.oracle
+		}
+		fn block_import_params(&self) -> Box<dyn Fn(
+			B::Header,
+			&B::Hash,
+			Vec<B::Extrinsic>,
+			Self::Claim,
+		) -> consensus_common::BlockImportParams<B> + Send> {
+			let c = |header: B::Header, _header_hash: &B::Hash, body: Vec<B::Extrinsic>, _claim: Self::Claim| {
+				BlockImportParams {
+					origin: BlockOrigin::Own,
+					header,
+					justification: None,
+					post_digests: Vec::new(),
+					body: Some(body),
+					finalized: false,
+					auxiliary: Vec::new(),
+					fork_choice: ForkChoiceStrategy::LongestChain,
+				}
+			};
+			Box::new(c)
+		}
+		fn proposer(&mut self, _block: &B::Header) -> Result<Self::Proposer, consensus_common::Error> {
+			Ok(SlowProposer(PhantomData))
+		}
+	}
+
+	#[test]
+	fn on_slot_should_not_wait_for_slow_proposer() {
+		use test_runtime::{Header as TestHeader, Block as TestBlock};
+		let some_slot_info = SlotInfo {
+			number: 1,
+			timestamp: 10,
+			ends_at: time::Instant::now() + time::Duration::from_secs(2),
+			inherent_data: InherentData::new(),
+			duration: 100,
+		};
+		let header = TestHeader::new(
+			0,
+			H256::default(),
+			H256::default(),
+			H256::default(),
+			Digest::default()
+		);
+		let mut worker = DummySlotWorker::new();
+		type WorkerOf<A> = DummySlotWorker::<A>;
+		let outcome = <WorkerOf<TestHeader> as SimpleSlotWorker<TestBlock>>::on_slot(&mut worker, header, some_slot_info);
+		let f = *outcome;
+		f.poll();
 	}
 }

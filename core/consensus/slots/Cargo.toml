@@ -12,7 +12,7 @@ client = { package = "substrate-client", path = "../../client" }
 primitives = { package = "substrate-primitives", path = "../../primitives" }
 sr-primitives = {  path = "../../sr-primitives" }
 substrate-telemetry = { path = "../../telemetry" }
-consensus_common = { package = "substrate-consensus-common", path = "../common" }
+consensus-common = { package = "substrate-consensus-common", path = "../common" }
 inherents = { package = "substrate-inherents", path = "../../inherents" }
 futures-preview = "0.3.0-alpha.19"
 futures-timer = "0.4.0"
@@ -21,3 +21,4 @@ log = "0.4.8"
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", path = "../../test-runtime/client" }
+test-runtime = { package = "substrate-test-runtime", path = "../../test-runtime" }

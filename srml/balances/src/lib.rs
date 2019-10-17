@@ -451,6 +451,11 @@ decl_module! {
 			dest: <T::Lookup as StaticLookup>::Source,
 			#[compact] value: T::Balance
 		) {
+			rstd::if_std! {
+				println!("Sleeping");
+				std::thread::sleep(std::time::Duration::from_secs(20));
+				println!("Done");
+			}
 			let transactor = ensure_signed(origin)?;
 			let dest = T::Lookup::lookup(dest)?;
 			<Self as Currency<_>>::transfer(&transactor, &dest, value)?;
