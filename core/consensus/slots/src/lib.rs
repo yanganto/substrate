@@ -212,7 +212,6 @@ pub trait SimpleSlotWorker<B: BlockT> {
 			dbg!(slot_after_building, slot_number);
 			if slot_after_building != slot_number {
 				info!("Discarding proposal for slot {}; block production took too long", slot_number);
-				panic!("KABOOM");
 				// If the node was compiled with debug, tell the user to use release optimizations.
 				#[cfg(build_type="debug")]
 				info!("Recompile your node in `--release` mode to mitigate this problem.");
@@ -437,6 +436,7 @@ impl<T: Clone> SlotDuration<T> {
 mod tests {
 	use super::*;
 	use std::{time, thread, marker::PhantomData, collections::HashMap};
+	use std::cell::RefCell;
 	use sr_primitives::traits::{Block as BlockT, DigestFor, Header as HeaderT};
 	use sr_primitives::generic::Digest;
 	use primitives::H256;
@@ -444,6 +444,10 @@ mod tests {
 	use consensus_common::{BlockCheckParams, BlockImportParams, ImportResult, import_queue::CacheKeyId};
 	use futures::future;
 	use inherents::InherentData;
+
+	thread_local! {
+		pub static IMPORTED: RefCell<bool> = RefCell::new(false);
+	}
 
 	#[derive(Copy, Clone, Default)]
 	struct DummySyncOracle;
@@ -458,11 +462,15 @@ mod tests {
 	impl<B: BlockT> BlockImport<B> for DummyBlockImport {
 		type Error = error::Error;
 		fn check_block(&mut self, _: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> { unimplemented!(); }
-		fn import_block(&mut self, _: BlockImportParams<B>, _: HashMap<CacheKeyId, Vec<u8>>) -> Result<ImportResult, Self::Error> { unimplemented!() }
+		fn import_block(&mut self, _: BlockImportParams<B>, _: HashMap<CacheKeyId, Vec<u8>>) -> Result<ImportResult, Self::Error> {
+			// who cares?
+			IMPORTED.with(|i| *i.borrow_mut() = true);
+			Ok(ImportResult::AlreadyInChain)
+		}
 	}
 
 	#[derive(Copy, Clone, Default)]
-	struct SlowProposer<T>(PhantomData<T>);
+	struct SlowProposer<T>(PhantomData<T>, u64);
 	impl<B, H> Proposer<B> for SlowProposer<H> where
 		H: HeaderT<Number=u64, Hash=H256>,
 		B: BlockT<Hash=H256, Header=H>,
@@ -476,7 +484,6 @@ mod tests {
 			_inherent_digests: DigestFor<B>,
 			_max_duration: time::Duration,
 		) -> Self::Create {
-			// let deadline = (self.now)() + max_duration - max_duration / 3;
 			let header = H::new(
 				0,
 				H256::default(),
@@ -485,11 +492,10 @@ mod tests {
 				Digest::default()
 			);
 			let some_block = B::new(header, vec![]);
-			let inner = Ok(some_block);
-			println!("Sleeping");
-			thread::sleep(time::Duration::from_secs(1));
-			println!("Done Sleeping");
-			futures::future::ready(inner)
+			println!("Sleeping...");
+			thread::sleep(time::Duration::from_millis(self.1));
+			println!("Done Sleeping..");
+			futures::future::ready(Ok(some_block))
 		}
 	}
 
@@ -497,13 +503,15 @@ mod tests {
 		__phantom_item: PhantomData<H>,
 		oracle: DummySyncOracle,
 		block_import: DummyBlockImport,
+		delay: u64,
 	}
 	impl<H> DummySlotWorker<H> {
-		fn new() -> Self {
+		fn new(delay: u64) -> Self {
 			Self {
 				__phantom_item: PhantomData::<H>,
 				oracle: DummySyncOracle,
-				block_import: DummyBlockImport
+				block_import: DummyBlockImport,
+				delay,
 			}
 		}
 	}
@@ -561,33 +569,38 @@ mod tests {
 			Box::new(c)
 		}
 		fn proposer(&mut self, _block: &B::Header) -> Result<Self::Proposer, consensus_common::Error> {
-			Ok(SlowProposer(PhantomData))
+			Ok(SlowProposer(PhantomData, self.delay))
 		}
 	}
+
 
 	#[test]
 	fn on_slot_should_not_wait_for_slow_proposer() {
 		use test_runtime::{Header as TestHeader, Block as TestBlock};
+		// must be milli seconds afaik.
+		let slot_duration = 2 * 1000;
+		// TODO: configure object sensibly.
 		let some_slot_info = SlotInfo {
-			number: 1,
-			timestamp: 10,
-			ends_at: time::Instant::now() + time::Duration::from_secs(2),
+			number: SignedDuration::default().slot_now(slot_duration),
+			duration: slot_duration,
+			ends_at: time::Instant::now() + time::Duration::from_millis(slot_duration),
 			inherent_data: InherentData::new(),
-			duration: 2 * 1000,
+			timestamp: 0,
 		};
 		let header = TestHeader::new(
 			0,
 			H256::default(),
 			H256::default(),
 			H256::default(),
-			Digest::default()
+			Digest::default(),
 		);
-		let mut worker = DummySlotWorker::new();
+		let mut worker = DummySlotWorker::new(100);
 		type WorkerOf<A> = DummySlotWorker::<A>;
-		let outcome = futures::executor::block_on(
+		let _outcome = futures::executor::block_on(
 			<WorkerOf<TestHeader> as SimpleSlotWorker<TestBlock>>::on_slot(&mut worker, header, some_slot_info)
 		);
-		dbg!(outcome);
-
+		IMPORTED.with(|i| {
+			assert!(*i.borrow())
+		})
 	}
 }
