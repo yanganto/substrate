@@ -22,3 +22,4 @@ log = "0.4.8"
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", path = "../../test-runtime/client" }
 test-runtime = { package = "substrate-test-runtime", path = "../../test-runtime" }
+tokio = "0.1.22"

@@ -204,6 +204,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 		let block_import = self.block_import();
 		let logging_target = self.logging_target();
 
+
 		Box::pin(proposal_work.map_ok(move |(block, claim)| {
 			// minor hack since we don't have access to the timestamp
 			// that is actually set by the proposer.
@@ -486,7 +487,7 @@ mod tests {
 			let some_block = B::new(header, vec![]);
 			let inner = Ok(some_block);
 			println!("Sleeping");
-			thread::sleep(time::Duration::from_secs(5));
+			thread::sleep(time::Duration::from_secs(1));
 			println!("Done Sleeping");
 			futures::future::ready(inner)
 		}
@@ -572,7 +573,7 @@ mod tests {
 			timestamp: 10,
 			ends_at: time::Instant::now() + time::Duration::from_secs(2),
 			inherent_data: InherentData::new(),
-			duration: 100,
+			duration: 2 * 1000,
 		};
 		let header = TestHeader::new(
 			0,
@@ -583,8 +584,10 @@ mod tests {
 		);
 		let mut worker = DummySlotWorker::new();
 		type WorkerOf<A> = DummySlotWorker::<A>;
-		let outcome = <WorkerOf<TestHeader> as SimpleSlotWorker<TestBlock>>::on_slot(&mut worker, header, some_slot_info);
-		let f = *outcome;
-		f.poll();
+		let outcome = futures::executor::block_on(
+			<WorkerOf<TestHeader> as SimpleSlotWorker<TestBlock>>::on_slot(&mut worker, header, some_slot_info)
+		);
+		dbg!(outcome);
+
 	}
 }
