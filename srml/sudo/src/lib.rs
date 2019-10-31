@@ -88,7 +88,9 @@
 
 use rstd::prelude::*;
 use sr_primitives::{
-	traits::{StaticLookup, Dispatchable}, weights::SimpleDispatchInfo, DispatchError,
+	DispatchError,
+	traits::{StaticLookup, Dispatchable},
+	weights::{SimpleDispatchInfo, GetDispatchInfo},
 };
 use support::{Parameter, decl_module, decl_event, decl_storage, ensure};
 use system::ensure_signed;
@@ -98,7 +100,7 @@ pub trait Trait: system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
 	/// A sudo-able call.
-	type Proposal: Parameter + Dispatchable<Origin=Self::Origin>;
+	type Proposal: Parameter + Dispatchable<Origin=Self::Origin> + GetDispatchInfo;
 }
 
 decl_module! {
@@ -122,8 +124,12 @@ decl_module! {
 			let sender = ensure_signed(origin)?;
 			ensure!(sender == Self::key(), "only the current sudo key can sudo");
 
-			let res = match proposal.dispatch(system::RawOrigin::Root.into()) {
-				Ok(_) => true,
+			let res = match proposal.clone().dispatch(system::RawOrigin::Root.into()) {
+				Ok(_) => {
+					// Substrate uses a fixed weight system. Cheap to note the weight of an inner call.
+					system::Module::<T>::register_extra_weight_unchecked(proposal.get_dispatch_info().weight);
+					true
+				},
 				Err(e) => {
 					let e: DispatchError = e.into();
 					sr_primitives::print(e);
@@ -164,7 +170,7 @@ decl_module! {
 		/// - One DB write (event).
 		/// - Unknown weight of derivative `proposal` execution.
 		/// # </weight>
-		#[weight = SimpleDispatchInfo::FixedOperational(0)]
+		#[weight = SimpleDispatchInfo::FreeOperational]
 		fn sudo_as(origin, who: <T::Lookup as StaticLookup>::Source, proposal: Box<T::Proposal>) {
 			// This is a public call, so we ensure that the origin is some signed account.
 			let sender = ensure_signed(origin)?;
@@ -172,8 +178,11 @@ decl_module! {
 
 			let who = T::Lookup::lookup(who)?;
 
-			let res = match proposal.dispatch(system::RawOrigin::Signed(who).into()) {
-				Ok(_) => true,
+			let res = match proposal.clone().dispatch(system::RawOrigin::Signed(who).into()) {
+				Ok(_) => {
+					system::Module::<T>::register_extra_weight_unchecked(proposal.get_dispatch_info().weight);
+					true
+				},
 				Err(e) => {
 					let e: DispatchError = e.into();
 					sr_primitives::print(e);

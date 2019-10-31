@@ -602,8 +602,51 @@ impl<T: Trait> Module<T> {
 		AllExtrinsicsWeight::get().unwrap_or_default()
 	}
 
+	/// Gets a total length (in bytes) of all executed extrinsics.
 	pub fn all_extrinsics_len() -> u32 {
 		AllExtrinsicsLen::get().unwrap_or_default()
+	}
+
+	/// an unchecked version of [`register_extra_weight`].
+	pub fn register_extra_weight_unchecked(weight: Weight) {
+		AllExtrinsicsWeight::mutate(|w| *w = w.map_or(weight, |w| w.saturating_add(weight)).into());
+	}
+
+
+	/// Inform the system module of some additional weight that should be accounted for, in the
+	/// current block.
+	///
+	/// NOTE: use with extra care; this function is made public only be used for certain modules
+	/// that need it. A runtime that does not have dynamic calls should never need this and should
+	/// stick to static weights. A typical use case for this is inner calls or smart contract calls.
+	/// Furthermore, it only makes sense to use this when it is presumably  _cheap_ to provide the
+	/// argument `weight`; In other words, if this function is to be used to account for some
+	/// unknown, user provided call's weight, it would only make sense to use it if you are sure you
+	/// can rapidly compute the weight of the inner call.
+	///
+	/// If no previous transactions exist, the function starts from zero.
+	///
+	/// This function respects the limits of the block defined in the system module. If you are
+	/// really sure what you are doing and want to ignore the limit checks, use
+	/// [`register_extra_weight_unchecked`].
+	pub fn register_extra_weight(info: DispatchInfo) -> Result<Weight, ()> {
+		let DispatchInfo { weight, class } = info;
+		let current_weight = Self::all_extrinsics_weight();
+		let maximum_weight = T::MaximumBlockWeight::get();
+		// TODO: this is duplicate code.
+		let ratio = match class {
+			DispatchClass::Normal => T::AvailableBlockRatio::get(),
+			DispatchClass::Operational => Perbill::one(),
+		};
+		let limit = ratio * maximum_weight;
+		let added_weight = weight.min(limit);
+		let next_weight = current_weight.saturating_add(added_weight);
+		if next_weight > limit {
+			Err(())
+		} else {
+			AllExtrinsicsWeight::put(next_weight);
+			Ok(next_weight)
+		}
 	}
 
 	/// Start the execution of a particular block.
@@ -780,16 +823,8 @@ impl<T: Trait + Send + Sync> CheckWeight<T> {
 	///
 	/// Upon successes, it returns the new block weight as a `Result`.
 	fn check_weight(info: DispatchInfo) -> Result<Weight, TransactionValidityError> {
-		let current_weight = Module::<T>::all_extrinsics_weight();
-		let maximum_weight = T::MaximumBlockWeight::get();
-		let limit = Self::get_dispatch_limit_ratio(info.class) * maximum_weight;
-		let added_weight = info.weight.min(limit);
-		let next_weight = current_weight.saturating_add(added_weight);
-		if next_weight > limit {
-			Err(InvalidTransaction::ExhaustsResources.into())
-		} else {
-			Ok(next_weight)
-		}
+		Module::<T>::register_extra_weight(info)
+			.map_err(|_| InvalidTransaction::ExhaustsResources.into())
 	}
 
 	/// Checks if the current extrinsic can fit into the block with respect to block length limits.
@@ -1475,6 +1510,15 @@ mod tests {
 			<BlockHash<Test>>::insert(16, H256::repeat_byte(1));
 
 			assert_eq!(ext.validate(&1, CALL, normal, len).unwrap().longevity, 15);
+		})
+	}
+
+	#[test]
+	fn register_extra_weight_works_on_initialise() {
+		new_test_ext().execute_with(|| {
+			assert_eq!(AllExtrinsicsWeight::get(), None);
+			System::register_extra_weight(DispatchInfo { weight: 100, class: DispatchClass::Normal });
+			assert_eq!(AllExtrinsicsWeight::get().unwrap(), 100);
 		})
 	}
 }
