@@ -114,7 +114,7 @@ use codec::{Codec, Encode, Decode};
 use runtime_io::blake2_256;
 use sr_primitives::{
 	traits::{Hash, StaticLookup, Zero, MaybeSerializeDeserialize, Member, SignedExtension},
-	weights::DispatchInfo,
+	weights::{DispatchInfo, GetDispatchInfo},
 	transaction_validity::{
 		ValidTransaction, InvalidTransaction, TransactionValidity, TransactionValidityError,
 	},
@@ -330,12 +330,17 @@ parameter_types! {
 }
 
 pub trait Trait: system::Trait {
+	/// Currency type.
 	type Currency: Currency<Self::AccountId>;
+
+	/// Time representation.
 	type Time: Time;
+
+	/// Randomness.
 	type Randomness: Randomness<Self::Hash>;
 
 	/// The outer call dispatch type.
-	type Call: Parameter + Dispatchable<Origin=<Self as system::Trait>::Origin> + IsSubType<Module<Self>, Self>;
+	type Call: Parameter + Dispatchable<Origin=<Self as system::Trait>::Origin> + IsSubType<Module<Self>, Self> + GetDispatchInfo;
 
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;

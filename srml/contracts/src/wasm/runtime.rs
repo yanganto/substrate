@@ -27,7 +27,7 @@ use rstd::prelude::*;
 use rstd::convert::TryInto;
 use rstd::mem;
 use codec::{Decode, Encode};
-use sr_primitives::traits::{Bounded, SaturatedConversion};
+use sr_primitives::{traits::{Bounded, SaturatedConversion}, weights::GetDispatchInfo};
 
 /// The value returned from ext_call and ext_instantiate contract external functions if the call or
 /// instantiation traps. This value is chosen as if the execution does not trap, the return value
@@ -638,6 +638,11 @@ define_env!(Env, <E: Ext>,
 			approx_gas_for_balance(ctx.gas_meter.gas_price(), balance_fee)
 		};
 		charge_gas(&mut ctx.gas_meter, ctx.schedule, RuntimeToken::ComputedDispatchFee(fee))?;
+
+		// Do something with weight,
+		let info = call.get_dispatch_info();
+		// maybe (this fails but just a demo)
+		system::Module::<<E as Ext>::T>::register_extra_weight_unchecked(info.weight);
 
 		ctx.ext.note_dispatch_call(call);
 
