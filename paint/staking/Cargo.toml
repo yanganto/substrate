@@ -18,6 +18,7 @@ support = { package = "paint-support", path = "../support", default-features = f
 system = { package = "paint-system", path = "../system", default-features = false }
 session = { package = "paint-session", path = "../session", default-features = false, features = ["historical"] }
 authorship = { package = "paint-authorship", path = "../authorship", default-features = false }
+app-crypto = { package = "substrate-application-crypto",  path = "../../primitives/application-crypto", default-features = false }
 
 [dev-dependencies]
 primitives = { package = "substrate-primitives",  path = "../../primitives/core" }

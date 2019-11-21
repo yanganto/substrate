@@ -267,6 +267,7 @@ use sr_primitives::{
 	weights::SimpleDispatchInfo,
 	traits::{
 		Convert, Zero, One, StaticLookup, CheckedSub, Saturating, Bounded, SaturatedConversion,
+		IdentifyAccount,
 	}
 };
 use sr_staking_primitives::{
@@ -519,6 +520,7 @@ impl<T: Trait> SessionInterface<<T as system::Trait>::AccountId> for T where
 	}
 }
 
+use system::offchain::RuntimeIdentifyAccount;
 pub trait Trait: system::Trait {
 	/// The staking balance.
 	type Currency: LockableCurrency<Self::AccountId, Moment=Self::BlockNumber>;
@@ -564,14 +566,14 @@ pub trait Trait: system::Trait {
 	type ElectionLookahead: Get<Self::BlockNumber>;
 
 	/// A (potentially unknown) key type used to sign the transactions.
-	type SigningKeyType: RuntimeAppPublic + From<Self::AccountId> + Into<Self::AccountId> + Clone; // TODO maybe all are not needed.
+	type SigningKeyType: RuntimeAppPublic + Clone;
 
 	/// The overarching call type.
 	// TODO: This is needed just to bound it to `From<Call<Self>>`. Otherwise could have `Self as system`
 	type Call: From<Call<Self>>;
 
 	/// A transaction submitter.
-	type SubmitTransaction: SubmitSignedTransaction<Self, <Self as Trait>::Call>;
+	type SubmitTransaction: SubmitSignedTransaction<Self, <Self as Trait>::Call> + RuntimeIdentifyAccount<Self, Key=Self::SigningKeyType>;
 }
 
 /// Mode of era-forcing.
@@ -766,8 +768,8 @@ decl_module! {
 					if let Some(election_result) = Self::do_phragmen() {
 						if let Some(key) = Self::signing_key() {
 							let call: <T as Trait>::Call = Call::submit_election_result(election_result).into();
-							use system::offchain::SubmitSignedTransaction;
-							T::SubmitTransaction::sign_and_submit(call, key.into());
+							// use system::offchain::SubmitSignedTransaction;
+							// T::SubmitTransaction::sign_and_submit(call, key.into());
 						} else {
 							print("validator with not signing key...");
 						}
@@ -1156,22 +1158,26 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Find a local `AccountId` we can sign with.
-	fn signing_key() -> Option<T::AccountId> {
+	fn signing_key() -> Option<T::AccountId>
+	{
 		// Find all local keys accessible to this app through the localised KeyType.
 		// Then go through all keys currently stored on chain and check them against
 		// the list of local keys until a match is found, otherwise return `None`.
-		let local_keys = T::SigningKeyType::all().iter().map(|i|
-			(*i).clone().into()
-		).collect::<Vec<T::AccountId>>();
+		let local_keys = T::SigningKeyType::all().iter().map(|i| {
+			use app_crypto::AppPublic;
+			let account_id = <T::SubmitTransaction as RuntimeIdentifyAccount<T>>::into_account(i.clone());
+			i.clone()
+		}).collect::<Vec<T::SigningKeyType>>();
 
 		// TODO: this is WRONG. current elected is not accurate.
-		Self::current_elected().into_iter().find_map(|v| {
-			if local_keys.contains(&v) {
-				Some(v)
-			} else {
-				None
-			}
-		})
+		// Self::current_elected().into_iter().find_map(|v| {
+		// 	if local_keys.contains(&v) {
+		// 		Some(v)
+		// 	} else {
+		// 		None
+		// 	}
+		// });
+		None
 	}
 
 	// MUTABLES (DANGEROUS)

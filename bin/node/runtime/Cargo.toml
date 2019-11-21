@@ -29,6 +29,7 @@ substrate-keyring = { path = "../../../primitives/keyring", optional = true }
 substrate-session = { path = "../../../primitives/session", default-features = false }
 tx-pool-api = { package = "substrate-transaction-pool-runtime-api", path = "../../../primitives/transaction-pool/runtime-api", default-features = false }
 version = { package = "sr-version", path = "../../../primitives/sr-version", default-features = false }
+app-crypto = { package = "substrate-application-crypto",  path = "../../../primitives/application-crypto", default-features = false }
 
 # paint dependencies
 authority-discovery = { package = "paint-authority-discovery", path = "../../../paint/authority-discovery", default-features = false }
