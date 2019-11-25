@@ -267,7 +267,6 @@ impl staking::Trait for Runtime {
 	type SessionInterface = Self;
 	type RewardCurve = RewardCurve;
 	type PredictNextAuthoritySetChange = Babe;
-	type SigningKeyType = babe_primitives::AuthorityId;
 	type ElectionLookahead = ElectionLookahead;
 	type Call = Call;
 	type SubmitTransaction = SubmitTransactionOf<babe_primitives::AuthorityId>;
