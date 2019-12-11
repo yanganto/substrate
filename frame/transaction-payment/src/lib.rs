@@ -59,7 +59,10 @@ pub trait Trait: system::Trait {
 	type Currency: Currency<Self::AccountId> + Send + Sync;
 
 	/// Handler for the unbalanced reduction when taking transaction fees.
-	type OnTransactionPayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
+	type OnTransactionFeePayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
+
+	/// Handler for the unbalanced reduction when taking transaction tip.
+	type OnTransactionTipPayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
 	/// The fee to be paid for making a transaction; the base.
 	type TransactionBaseFee: Get<BalanceOf<Self>>;
@@ -119,7 +122,7 @@ impl<T: Trait> Module<T> {
 	{
 		let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
 
-		let partial_fee = <ChargeTransactionPayment<T>>::compute_fee(len, dispatch_info, 0u32.into());
+		let partial_fee = <ChargeTransactionPayment<T>>::compute_fee(len, dispatch_info);
 		let DispatchInfo { weight, class, .. } = dispatch_info;
 
 		RuntimeDispatchInfo { weight, class, partial_fee }
@@ -144,12 +147,9 @@ impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 	///   - _weight-fee_: This amount is computed based on the weight of the transaction. Unlike
 	///      size-fee, this is not input dependent and reflects the _complexity_ of the execution
 	///      and the time it consumes.
-	///   - (optional) _tip_: if included in the transaction, it will be added on top. Only signed
-	///      transactions can have a tip.
 	fn compute_fee(
 		len: u32,
 		info: <Self as SignedExtension>::DispatchInfo,
-		tip: BalanceOf<T>,
 	) -> BalanceOf<T>
 	where
 		BalanceOf<T>: Sync + Send,
@@ -172,9 +172,9 @@ impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> {
 			let fee_update = NextFeeMultiplier::get();
 			let adjusted_fee = fee_update.saturated_multiply_accumulate(basic_fee);
 
-			adjusted_fee.saturating_add(tip)
+			adjusted_fee
 		} else {
-			tip
+			<BalanceOf<T>>::zero()
 		}
 	}
 }
@@ -207,23 +207,31 @@ impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T>
 		info: Self::DispatchInfo,
 		len: usize,
 	) -> TransactionValidity {
-		// pay any fees.
+		// pay any fees and tip.
 		let tip = self.0;
-		let fee = Self::compute_fee(len as u32, info, tip);
-		let imbalance = match T::Currency::withdraw(
+		let tip_imbalance = match T::Currency::withdraw(
 			who,
-			fee,
-			if tip.is_zero() {
-				WithdrawReason::TransactionPayment.into()
-			} else {
-				WithdrawReason::TransactionPayment | WithdrawReason::Tip
-			},
+			tip,
+			WithdrawReason::Tip.into(),
 			ExistenceRequirement::KeepAlive,
 		) {
 			Ok(imbalance) => imbalance,
 			Err(_) => return InvalidTransaction::Payment.into(),
 		};
-		T::OnTransactionPayment::on_unbalanced(imbalance);
+
+		let fee = Self::compute_fee(len as u32, info);
+		let fee_imbalance = match T::Currency::withdraw(
+			who,
+			fee,
+			WithdrawReason::TransactionPayment.into(),
+			ExistenceRequirement::KeepAlive,
+		) {
+			Ok(imbalance) => imbalance,
+			Err(_) => return InvalidTransaction::Payment.into(),
+		};
+
+		T::OnTransactionFeePayment::on_unbalanced(fee_imbalance);
+		T::OnTransactionTipPayment::on_unbalanced(tip_imbalance);
 
 		let mut r = ValidTransaction::default();
 		// NOTE: we probably want to maximize the _fee (of any type) per weight unit_ here, which
@@ -335,7 +343,8 @@ mod tests {
 
 	impl Trait for Runtime {
 		type Currency = balances::Module<Runtime>;
-		type OnTransactionPayment = ();
+		type OnTransactionFeePayment = ();
+		type OnTransactionTipPayment = ();
 		type TransactionBaseFee = TransactionBaseFee;
 		type TransactionByteFee = TransactionByteFee;
 		type WeightToFee = WeightToFee;

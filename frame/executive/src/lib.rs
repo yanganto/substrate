@@ -437,7 +437,8 @@ mod tests {
 	}
 	impl transaction_payment::Trait for Runtime {
 		type Currency = Balances;
-		type OnTransactionPayment = ();
+		type OnTransactionFeePayment = ();
+		type OnTransactionTipPayment = ();
 		type TransactionBaseFee = TransactionBaseFee;
 		type TransactionByteFee = TransactionByteFee;
 		type WeightToFee = ConvertInto;

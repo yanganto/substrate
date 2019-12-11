@@ -219,7 +219,8 @@ parameter_types! {
 
 impl transaction_payment::Trait for Runtime {
 	type Currency = balances::Module<Runtime>;
-	type OnTransactionPayment = ();
+	type OnTransactionFeePayment = ();
+	type OnTransactionTipPayment = ();
 	type TransactionBaseFee = TransactionBaseFee;
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = ConvertInto;
