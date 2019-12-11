@@ -230,8 +230,8 @@ impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T>
 			Err(_) => return InvalidTransaction::Payment.into(),
 		};
 
-		T::OnTransactionFeePayment::on_unbalanced(fee_imbalance);
 		T::OnTransactionTipPayment::on_unbalanced(tip_imbalance);
+		T::OnTransactionFeePayment::on_unbalanced(fee_imbalance);
 
 		let mut r = ValidTransaction::default();
 		// NOTE: we probably want to maximize the _fee (of any type) per weight unit_ here, which
