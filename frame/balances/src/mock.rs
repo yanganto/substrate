@@ -81,6 +81,7 @@ parameter_types! {
 	pub const TransactionByteFee: u64 = 1;
 }
 impl transaction_payment::Trait for Runtime {
+	type Author = ();
 	type Currency = Module<Runtime>;
 	type OnTransactionFeePayment = ();
 	type OnTransactionTipPayment = ();

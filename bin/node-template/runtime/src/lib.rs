@@ -225,6 +225,7 @@ impl transaction_payment::Trait for Runtime {
 	type TransactionByteFee = TransactionByteFee;
 	type WeightToFee = ConvertInto;
 	type FeeMultiplierUpdate = ();
+	type Author = ();
 }
 
 impl sudo::Trait for Runtime {

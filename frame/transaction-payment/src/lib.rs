@@ -35,14 +35,13 @@ use sp_std::prelude::*;
 use codec::{Encode, Decode};
 use support::{
 	decl_storage, decl_module,
-	traits::{Currency, Get, OnUnbalanced, ExistenceRequirement, WithdrawReason},
+	traits::{Currency, Get, OnUnbalanced, ExistenceRequirement, WithdrawReason, Author},
 	weights::{Weight, DispatchInfo, GetDispatchInfo},
 };
 use sp_runtime::{
 	Fixed64,
 	transaction_validity::{
-		TransactionPriority, ValidTransaction, InvalidTransaction, TransactionValidityError,
-		TransactionValidity,
+		ValidTransaction, InvalidTransaction, TransactionValidityError, TransactionValidity,
 	},
 	traits::{Zero, Saturating, SignedExtension, SaturatedConversion, Convert},
 };
@@ -75,6 +74,12 @@ pub trait Trait: system::Trait {
 
 	/// Update the multiplier of the next block, based on the previous block's weight.
 	type FeeMultiplierUpdate: Convert<Multiplier, Multiplier>;
+
+	/// Author rewarded for transaction inclusion.
+	///
+	/// This is called to validate each transaction. Value in on_initialize and on_finalize don't
+	/// matter.
+	type Author: Author<Self::AccountId>;
 }
 
 decl_storage! {
@@ -207,6 +212,10 @@ impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T>
 		info: Self::DispatchInfo,
 		len: usize,
 	) -> TransactionValidity {
+		let author = T::Author::author();
+
+		let author_initial_balance = T::Currency::total_balance(&author);
+
 		// pay any fees and tip.
 		let tip = self.0;
 		let tip_imbalance = match T::Currency::withdraw(
@@ -233,11 +242,25 @@ impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T>
 		T::OnTransactionTipPayment::on_unbalanced(tip_imbalance);
 		T::OnTransactionFeePayment::on_unbalanced(fee_imbalance);
 
-		let mut r = ValidTransaction::default();
-		// NOTE: we probably want to maximize the _fee (of any type) per weight unit_ here, which
-		// will be a bit more than setting the priority to tip. For now, this is enough.
-		r.priority = fee.saturating_add(tip).saturated_into::<TransactionPriority>();
-		Ok(r)
+		let author_balance_diff = T::Currency::total_balance(&author)
+			.saturating_sub(author_initial_balance);
+
+		let balance_to_u32_divisor = (T::Currency::total_issuance() / u32::max_value().into())
+			.max(1.into());
+
+		// Balance is expressed as fraction of total issuance in u32
+		let author_balance_diff_u32 = (author_balance_diff / balance_to_u32_divisor)
+			.saturated_into::<u32>();
+
+		let priority = <u32 as Into<u64>>::into(author_balance_diff_u32)
+			// Multiplication cannot overflow as u32 * u32 never overflow in u64
+			.saturating_mul(<u32 as Into<u64>>::into(T::MaximumBlockWeight::get()))
+			/ <u32 as Into<u64>>::into(info.weight.max(1));
+
+		Ok(ValidTransaction {
+			priority,
+			.. Default::default()
+		})
 	}
 }
 
@@ -342,6 +365,7 @@ mod tests {
 	}
 
 	impl Trait for Runtime {
+		type Author = ();
 		type Currency = balances::Module<Runtime>;
 		type OnTransactionFeePayment = ();
 		type OnTransactionTipPayment = ();

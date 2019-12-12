@@ -436,6 +436,7 @@ mod tests {
 		pub const TransactionByteFee: u64 = 0;
 	}
 	impl transaction_payment::Trait for Runtime {
+		type Author = ();
 		type Currency = Balances;
 		type OnTransactionFeePayment = ();
 		type OnTransactionTipPayment = ();
