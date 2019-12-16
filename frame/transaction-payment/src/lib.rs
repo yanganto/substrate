@@ -248,7 +248,7 @@ impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T>
 		let balance_to_u32_divisor = (T::Currency::total_issuance() / u32::max_value().into())
 			.max(1.into());
 
-		// Balance is expressed as fraction of total issuance in u32
+		// Balance expressed as fraction of total issuance in u32
 		let author_balance_diff_u32 = (author_balance_diff / balance_to_u32_divisor)
 			.saturated_into::<u32>();
 
