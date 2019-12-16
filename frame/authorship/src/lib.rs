@@ -369,13 +369,9 @@ impl<T: Trait> ProvideInherent for Module<T> {
 	}
 }
 
-/// # Warning
-///
-/// Invalid result can be returned in on_initialize and in on_finalize, this must function be used
-/// only inside the block execution (or outside to get Default accountid).
-impl<T: Trait> support::traits::Author<T::AccountId> for Module<T> {
+impl<T: Trait> frame_support::traits::Author<T::AccountId> for Module<T> {
 	fn author() -> T::AccountId {
-		<Self as Store>::Author::get().unwrap_or_else(Default::default)
+		Self::author()
 	}
 }
 
