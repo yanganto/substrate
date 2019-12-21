@@ -305,6 +305,7 @@ where
 	///
 	/// Changes made to storage should be discarded.
 	pub fn validate_transaction(uxt: Block::Extrinsic) -> TransactionValidity {
+		support::print("Executive::validate_transaction");
 		let encoded_len = uxt.using_encoded(|d| d.len());
 		let xt = uxt.check(&Default::default())?;
 
