@@ -1300,6 +1300,7 @@ impl<T: Trait> Module<T> {
 	/// NOTE: This always happens immediately before a session change to ensure that new validators
 	/// get a chance to set their session keys.
 	fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
+		rstd::if_std! { println!("Well this is Native!"); }
 		support::print("++Payout.");
 		// Payout
 		let points = CurrentEraPointsEarned::take();
