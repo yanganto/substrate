@@ -1300,6 +1300,7 @@ impl<T: Trait> Module<T> {
 	/// NOTE: This always happens immediately before a session change to ensure that new validators
 	/// get a chance to set their session keys.
 	fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
+		support::print("++Payout.");
 		// Payout
 		let points = CurrentEraPointsEarned::take();
 		let now = T::Time::now();
@@ -1348,6 +1349,7 @@ impl<T: Trait> Module<T> {
 		});
 		let bonding_duration = T::BondingDuration::get();
 
+		support::print("++BondedEraStuff.");
 		BondedEras::mutate(|bonded| {
 			bonded.push((current_era, start_session_index));
 
@@ -1371,9 +1373,12 @@ impl<T: Trait> Module<T> {
 		});
 
 		// Reassign all Stakers.
+		support::print("++Phragmen.");
 		let (_slot_stake, maybe_new_validators) = Self::select_validators();
+		support::print("++ApplyUnappliedSlashes.");
 		Self::apply_unapplied_slashes(current_era);
 
+		support::print("++AllDone.");
 		maybe_new_validators
 	}
 
