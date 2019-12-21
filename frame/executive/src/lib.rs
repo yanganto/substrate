@@ -127,6 +127,7 @@ where
 	UnsignedValidator: ValidateUnsigned<Call=CallOf<Block::Extrinsic, Context>>,
 {
 	fn execute_block(block: Block) {
+		support::print("Executive::ExecuteBlock");
 		Executive::<System, Block, Context, UnsignedValidator, AllModules>::execute_block(block);
 	}
 }
@@ -194,6 +195,7 @@ where
 
 	/// Actually execute all transitions for `block`.
 	pub fn execute_block(block: Block) {
+		support::print("Executive::ExecuteBlock::inner");
 		Self::initialize_block(block.header());
 
 		// any initial checks
