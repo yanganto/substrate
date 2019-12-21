@@ -195,6 +195,7 @@ where
 
 	/// Actually execute all transitions for `block`.
 	pub fn execute_block(block: Block) {
+		rstd::if_std! { println!("Well this is Native!"); }
 		support::print("Executive::ExecuteBlock::inner");
 		Self::initialize_block(block.header());
 
