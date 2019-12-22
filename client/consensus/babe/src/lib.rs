@@ -592,7 +592,9 @@ impl<B, E, Block: BlockT, RA, PRA> BabeVerifier<B, E, Block, RA, PRA> {
 		block_id: BlockId<Block>,
 		inherent_data: InherentData,
 	) -> Result<(), Error<Block>>
-		where PRA: ProvideRuntimeApi, PRA::Api: BlockBuilderApi<Block, Error = sp_blockchain::Error>
+		where
+			PRA: ProvideRuntimeApi,
+			PRA::Api: BlockBuilderApi<Block, Error = sp_blockchain::Error>,
 	{
 		println!("Checking inherents");
 		let inherent_res = self.api.runtime_api().check_inherents(
@@ -600,6 +602,8 @@ impl<B, E, Block: BlockT, RA, PRA> BabeVerifier<B, E, Block, RA, PRA> {
 			block,
 			inherent_data,
 		).map_err(Error::Client)?;
+		let _ = self.api.runtime_api().finalize_block(&block_id);
+		println!("Checked inherents");
 
 		if !inherent_res.ok() {
 			inherent_res
