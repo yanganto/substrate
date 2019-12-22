@@ -599,9 +599,12 @@ impl<B, E, Block: BlockT, RA, PRA> BabeVerifier<B, E, Block, RA, PRA> {
 		println!("Checking inherents");
 		let inherent_res = self.api.runtime_api().check_inherents(
 			&block_id,
-			block,
+			block.clone(),
 			inherent_data,
 		).map_err(Error::Client)?;
+
+		use sp_api::Core;
+		let _ = self.api.runtime_api().execute_block(&block_id, block);
 		let _ = self.api.runtime_api().finalize_block(&block_id);
 		println!("Checked inherents");
 
