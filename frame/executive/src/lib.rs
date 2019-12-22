@@ -155,6 +155,8 @@ where
 {
 	/// Start the execution of a particular block.
 	pub fn initialize_block(header: &System::Header) {
+		rstd::if_std! { println!("[Native] Executive::initialize_block"); }
+		support::print("Executive::initialize_block");
 		let mut digests = <DigestOf<System>>::default();
 		header.digest().logs().iter().for_each(|d| if d.as_pre_runtime().is_some() { digests.push(d.clone()) });
 		Self::initialize_block_impl(header.number(), header.parent_hash(), header.extrinsics_root(), &digests);
@@ -195,8 +197,8 @@ where
 
 	/// Actually execute all transitions for `block`.
 	pub fn execute_block(block: Block) {
-		rstd::if_std! { println!("Well this is Native!"); }
-		support::print("Executive::ExecuteBlock::inner");
+		rstd::if_std! { println!("[Native] Executive::execute_block"); }
+		support::print("Executive::execute_block");
 		Self::initialize_block(block.header());
 
 		// any initial checks
@@ -305,6 +307,7 @@ where
 	///
 	/// Changes made to storage should be discarded.
 	pub fn validate_transaction(uxt: Block::Extrinsic) -> TransactionValidity {
+		rstd::if_std! { println!("[Native] Executive::validate_transaction"); }
 		support::print("Executive::validate_transaction");
 		let encoded_len = uxt.using_encoded(|d| d.len());
 		let xt = uxt.check(&Default::default())?;
@@ -315,6 +318,8 @@ where
 
 	/// Start an offchain worker and generate extrinsics.
 	pub fn offchain_worker(n: System::BlockNumber) {
+		rstd::if_std! { println!("[Native] Executive::offchain_worker"); }
+		support::print("Executive::offchain_worker");
 		<AllModules as OffchainWorker<System::BlockNumber>>::offchain_worker(n)
 	}
 }
