@@ -594,6 +594,7 @@ impl<B, E, Block: BlockT, RA, PRA> BabeVerifier<B, E, Block, RA, PRA> {
 	) -> Result<(), Error<Block>>
 		where PRA: ProvideRuntimeApi, PRA::Api: BlockBuilderApi<Block, Error = sp_blockchain::Error>
 	{
+		println!("Checking inherents");
 		let inherent_res = self.api.runtime_api().check_inherents(
 			&block_id,
 			block,
@@ -752,7 +753,9 @@ impl<B, E, Block, RA, PRA> Verifier<Block> for BabeVerifier<B, E, Block, RA, PRA
 				// actually matches the slot set in the seal.
 				if let Some(inner_body) = body.take() {
 					inherent_data.babe_replace_inherent_data(slot_number);
+					println!("Calling block::new");
 					let block = Block::new(pre_header.clone(), inner_body);
+					println!("Called block::new");
 
 					self.check_inherents(
 						block.clone(),
