@@ -1154,6 +1154,7 @@ impl<B, E, Block, RA> Client<B, E, Block, RA> where
 	/// Get block status.
 	pub fn block_status(&self, id: &BlockId<Block>) -> sp_blockchain::Result<BlockStatus> {
 		// this can probably be implemented more efficiently
+		println!("SO WE ARE HERE???");
 		if let BlockId::Hash(ref h) = id {
 			if self.importing_block.read().as_ref().map_or(false, |importing| h == importing) {
 				return Ok(BlockStatus::Queued);
@@ -1461,6 +1462,7 @@ impl<'a, B, E, Block, RA> consensus::BlockImport<Block> for &'a Client<B, E, Blo
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let BlockCheckParams { hash, number, parent_hash, allow_missing_state, import_existing } = block;
+		println!("Client::check_block() / {}", import_existing);
 
 		if let Some(h) = self.fork_blocks.as_ref().and_then(|x| x.get(&number)) {
 			if &hash != h  {
