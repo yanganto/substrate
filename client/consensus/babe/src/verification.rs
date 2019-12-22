@@ -209,6 +209,7 @@ fn check_secondary_header<B: BlockT>(
 		return Err(Error::InvalidAuthor(expected_author.clone(), author.clone()));
 	}
 
+	println!("In progress of check_primary_header");
 	if AuthorityPair::verify(&signature, pre_hash.as_ref(), author) {
 		Ok(())
 	} else {
