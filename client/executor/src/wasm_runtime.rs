@@ -232,7 +232,7 @@ fn create_versioned_wasm_runtime<E: Externalities>(
 	let code = if cfg!(feature = "forced-runtime") {
 		use std::io::Read;
 
-		let mut file = std::fs::File::open("./wasmdump/node_runtime.wasm").unwrap();
+		let mut file = std::fs::File::open("./wasmdump/custom_runtime.wasm").unwrap();
 		let mut code_vec = Vec::new();
 		println!("++ Loaded an alternated wasm file from wasmdump dir");
 		file.read_to_end(&mut code_vec).unwrap();
