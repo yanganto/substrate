@@ -211,6 +211,7 @@ fn check_secondary_header<B: BlockT>(
 
 	println!("In progress of check_primary_header");
 	if AuthorityPair::verify(&signature, pre_hash.as_ref(), author) {
+		println!("Ok(())");
 		Ok(())
 	} else {
 		Err(Error::BadSignature(pre_hash))

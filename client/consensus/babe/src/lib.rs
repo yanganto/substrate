@@ -745,6 +745,7 @@ impl<B, E, Block, RA, PRA> Verifier<Block> for BabeVerifier<B, E, Block, RA, PRA
 						equivocation_proof.snd_header().hash(),
 					);
 				}
+				println!("Checked Equivocation");
 
 				// if the body is passed through, we need to use the runtime
 				// to check that the internally-set timestamp in the inherents
