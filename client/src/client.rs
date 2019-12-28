@@ -1167,8 +1167,10 @@ impl<B, E, Block, RA> Client<B, E, Block, RA> where
 		match hash_and_number {
 			Some((hash, number)) => {
 				if self.backend.have_state_at(&hash, number) {
+					dbg!("in chain with state", &hash, number);
 					Ok(BlockStatus::InChainWithState)
 				} else {
+					dbg!("This is pruned!");
 					Ok(BlockStatus::InChainPruned)
 				}
 			}
