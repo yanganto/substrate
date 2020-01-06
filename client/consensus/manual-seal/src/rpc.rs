@@ -210,5 +210,11 @@ pub fn send_result<T: std::fmt::Debug>(
 		if let Err(err) = sender.send(result) {
 			log::warn!("Server is shutting down: {:?}", err)
 		}
+	} else {
+		// instant seal doesn't report errors over rpc, simply log them.
+		match result {
+			Ok(r) => log::info!("Instant Seal success: {}", r),
+			Err(e) => log::error!("Instant Seal encountered an error: {}", e)
+		}
 	}
 }
