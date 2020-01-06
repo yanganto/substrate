@@ -5297,6 +5297,7 @@ dependencies = [
  "jsonrpc-derive 14.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sc-basic-authority 2.0.0",
  "sc-client 2.0.0",
  "sc-client-api 2.0.0",
  "sc-transaction-pool 2.0.0",

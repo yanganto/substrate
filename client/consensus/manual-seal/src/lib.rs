@@ -239,6 +239,13 @@ mod tests {
 	use sp_inherents::InherentDataProviders;
 	use sc_basic_authority::ProposerFactory;
 
+	fn api() -> TestApi {
+		TestApi {
+			modifier: Box::new(|_| {}),
+			nonce_offset: 0
+		}
+	}
+
 	#[tokio::test]
 	async fn instant_seal() {
 		let builder = TestClientBuilder::new();
@@ -246,7 +253,7 @@ mod tests {
 		let client = Arc::new(builder.build());
 		let select_chain = LongestChain::new(backend.clone());
 		let inherent_data_providers = InherentDataProviders::new();
-		let pool = Arc::new(BasicPool::new(Options::default(), TestApi::default()));
+		let pool = Arc::new(BasicPool::new(Options::default(), api()));
 		let env = ProposerFactory {
 			transaction_pool: pool.clone(),
 			client: client.clone(),
@@ -281,7 +288,7 @@ mod tests {
 			rt.block_on(future);
 		});
 		// submit a transaction to pool.
-		let result = pool.submit_one(&BlockId::Number(0), uxt(Alice, 209)).await;
+		let result = pool.submit_one(&BlockId::Number(0), uxt(Alice, 0)).await;
 		// assert that it was successfully imported
 		assert!(result.is_ok());
 		// assert that the background task returns ok
@@ -311,7 +318,7 @@ mod tests {
 		let client = Arc::new(builder.build());
 		let select_chain = LongestChain::new(backend.clone());
 		let inherent_data_providers = InherentDataProviders::new();
-		let pool = Arc::new(BasicPool::new(Options::default(), TestApi::default()));
+		let pool = Arc::new(BasicPool::new(Options::default(), api()));
 		let env = ProposerFactory {
 			transaction_pool: pool.clone(),
 			client: client.clone(),
@@ -333,7 +340,7 @@ mod tests {
 			rt.block_on(future);
 		});
 		// submit a transaction to pool.
-		let result = pool.submit_one(&BlockId::Number(0), uxt(Alice, 209)).await;
+		let result = pool.submit_one(&BlockId::Number(0), uxt(Alice, 0)).await;
 		// assert that it was successfully imported
 		assert!(result.is_ok());
 		let (tx, rx) = futures::channel::oneshot::channel();
@@ -379,7 +386,7 @@ mod tests {
 		let client = Arc::new(builder.build());
 		let select_chain = LongestChain::new(backend.clone());
 		let inherent_data_providers = InherentDataProviders::new();
-		let pool = Arc::new(BasicPool::new(Options::default(), TestApi::default()));
+		let pool = Arc::new(BasicPool::new(Options::default(), api()));
 		let env = ProposerFactory {
 			transaction_pool: pool.clone(),
 			client: client.clone(),
@@ -401,7 +408,7 @@ mod tests {
 			rt.block_on(future);
 		});
 		// submit a transaction to pool.
-		let result = pool.submit_one(&BlockId::Number(0), uxt(Alice, 209)).await;
+		let result = pool.submit_one(&BlockId::Number(0), uxt(Alice, 0)).await;
 		// assert that it was successfully imported
 		assert!(result.is_ok());
 
@@ -431,7 +438,7 @@ mod tests {
 		);
 		// assert that there's a new block in the db.
 		assert!(backend.blockchain().header(BlockId::Number(0)).unwrap().is_some());
-		assert!(pool.submit_one(&BlockId::Number(1), uxt(Alice, 210)).await.is_ok());
+		assert!(pool.submit_one(&BlockId::Number(1), uxt(Alice, 1)).await.is_ok());
 
 		let (tx1, rx1) = futures::channel::oneshot::channel();
 		assert!(sink.send(EngineCommand::SealNewBlock {
@@ -441,8 +448,9 @@ mod tests {
 			finalize: false,
 		}).await.is_ok());
 		assert!(rx1.await.unwrap().is_ok());
+		assert!(backend.blockchain().header(BlockId::Number(1)).unwrap().is_some());
 
-		assert!(pool.submit_one(&BlockId::Number(2), uxt(Alice, 211)).await.is_ok());
+		assert!(pool.submit_one(&BlockId::Number(2), uxt(Alice, 2)).await.is_ok());
 		let (tx2, rx2) = futures::channel::oneshot::channel();
 		assert!(sink.send(EngineCommand::SealNewBlock {
 			parent_hash: Some(created_block.hash),
@@ -450,6 +458,8 @@ mod tests {
 			create_empty: false,
 			finalize: false,
 		}).await.is_ok());
-		assert!(rx2.await.unwrap().is_err());
+		let imported = rx2.await.unwrap().unwrap();
+		// assert that fork block is in the db
+		assert!(backend.blockchain().header(BlockId::Hash(imported.hash)).unwrap().is_some())
 	}
 }

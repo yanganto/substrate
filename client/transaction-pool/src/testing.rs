@@ -30,6 +30,8 @@ use sp_runtime::{
 
 /// Transaction pool api that performs some custom or no validation.
 pub struct TestApi {
+	/// specify the offset for transaction nonces
+	pub nonce_offset: u64,
 	/// custom validation function to run when importing transactions.
 	pub modifier: Box<dyn Fn(&mut ValidTransaction) + Send + Sync>,
 }
@@ -39,6 +41,7 @@ impl TestApi {
 	/// Creates a instance of TestApi that performs no validation.
 	pub fn default() -> Self {
 		TestApi {
+			nonce_offset: 209,
 			modifier: Box::new(|_| {}),
 		}
 	}
@@ -55,7 +58,7 @@ impl txpool::ChainApi for TestApi {
 		at: &BlockId<Self::Block>,
 		uxt: txpool::ExtrinsicFor<Self>,
 	) -> Self::ValidationFuture {
-		let expected = index(at);
+		let expected = index(at, self.nonce_offset);
 		let requires = if expected == uxt.transfer().nonce {
 			vec![]
 		} else {
@@ -97,8 +100,8 @@ impl txpool::ChainApi for TestApi {
 }
 
 /// generate nonce to be used with testing TestApi
-pub fn index(at: &BlockId<Block>) -> u64 {
-	209 + number_of(at)
+pub fn index(at: &BlockId<Block>, offset: u64) -> u64 {
+	offset + number_of(at)
 }
 
 fn number_of(at: &BlockId<Block>) -> u64 {

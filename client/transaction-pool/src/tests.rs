@@ -29,7 +29,7 @@ use testing::*;
 #[test]
 fn submission_should_work() {
 	let pool = pool();
-	assert_eq!(209, index(&BlockId::number(0)));
+	assert_eq!(209, index(&BlockId::number(0), 209));
 	block_on(pool.submit_one(&BlockId::number(0), uxt(Alice, 209))).unwrap();
 
 	let pending: Vec<_> = pool.ready().map(|a| a.data.transfer().nonce).collect();

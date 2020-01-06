@@ -26,6 +26,7 @@ sp-runtime = {  path = "../../../primitives/runtime" }
 sp-transaction-pool = { path = "../../../primitives/transaction-pool" }
 
 [dev-dependencies]
+sc-basic-authority = { path = "../../basic-authorship" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
 tokio = { version = "0.2", features = ["rt-core", "macros"] }
 env_logger = "0.7.0"

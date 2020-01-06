@@ -129,7 +129,7 @@ pub async fn seal_new_block<B, C, CB, E, P, H>(params: SealBlockParams<'_, B, C,
 				rpc::send_result(&mut sender, Err(Error::ProposerError(format!("{}", err))))
 			})?;
 
-		if block.extrinsics().len() == 0 {
+		if block.extrinsics().len() == 0 && !create_empty {
 			return Err(rpc::send_result(&mut sender, Err(Error::EmptyTransactionPool)))
 		}
 

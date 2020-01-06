@@ -24,6 +24,7 @@ use futures::{
 		oneshot,
 	},
 	TryFutureExt,
+	FutureExt,
 	SinkExt
 };
 use serde::{Deserialize, Serialize};
@@ -119,15 +120,13 @@ impl<Hash: Send + 'static> ManualSealApi<Hash> for ManualSeal<Hash> {
 		let mut sink = self.import_block_channel.clone();
 		let future = async move {
 			let (sender, receiver) = oneshot::channel();
-			let result = sink.send(
-				EngineCommand::SealNewBlock {
-					create_empty,
-					finalize,
-					parent_hash,
-					sender: Some(sender),
-				}
-			).await;
-			result.map_err(map_error)?;
+			let command = EngineCommand::SealNewBlock {
+				create_empty,
+				finalize,
+				parent_hash,
+				sender: Some(sender),
+			};
+			sink.send(command).await.map_err(map_error)?;
 
 			match receiver.await {
 				// all good
@@ -149,19 +148,18 @@ impl<Hash: Send + 'static> ManualSealApi<Hash> for ManualSeal<Hash> {
 					})
 				}
 			}
-		};
+		}.boxed();
 
-		Box::new(Box::pin(future).compat())
+		Box::new(future.compat())
 	}
 
 	fn finalize_block(&self, hash: Hash, justification: Option<Justification>) -> FutureResult<bool> {
 		let mut sink = self.import_block_channel.clone();
 		let future = async move {
 			let (sender, receiver) = oneshot::channel();
-			let result = sink.send(
+			sink.send(
 				EngineCommand::FinalizeBlock { hash, sender: Some(sender), justification }
-			).await;
-			result.map_err(map_error)?;
+			).await.map_err(map_error)?;
 
 			match receiver.await {
 				// all good
@@ -183,9 +181,9 @@ impl<Hash: Send + 'static> ManualSealApi<Hash> for ManualSeal<Hash> {
 					})
 				}
 			}
-		};
+		}.boxed();
 
-		Box::new(Box::pin(future).compat())
+		Box::new(future.compat())
 	}
 }
 
