@@ -213,7 +213,7 @@ pub fn send_result<T: std::fmt::Debug>(
 	} else {
 		// instant seal doesn't report errors over rpc, simply log them.
 		match result {
-			Ok(r) => log::info!("Instant Seal success: {}", r),
+			Ok(r) => log::info!("Instant Seal success: {:?}", r),
 			Err(e) => log::error!("Instant Seal encountered an error: {}", e)
 		}
 	}
