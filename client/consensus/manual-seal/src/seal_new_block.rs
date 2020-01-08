@@ -64,34 +64,34 @@ pub struct SealBlockParams<'a, B: BlockT, C, CB, E, P: txpool::ChainApi> {
 }
 
 /// seals a new block with the given params
-pub async fn seal_new_block<B, C, CB, E, P, H>(params: SealBlockParams<'_, B, C, CB, E, P>)
-	where
-		B: BlockT,
-		H: Hasher<Out=<B as BlockT>::Hash>,
-		CB: ClientBackend<B, H>,
-		E: Environment<B>,
-		E::Error: std::fmt::Display,
-		<E::Proposer as Proposer<B>>::Error: std::fmt::Display,
-		P: txpool::ChainApi<Block=B, Hash=<B as BlockT>::Hash>,
-		C: SelectChain<B>,
-{
-	let SealBlockParams {
+pub async fn seal_new_block<B, SC, CB, E, P, H>(
+	SealBlockParams {
 		create_empty,
 		finalize,
 		pool,
 		parent_hash,
-		mut sender,
 		back_end,
 		select_chain,
 		block_import,
 		env,
 		inherent_data_provider,
+		mut sender,
 		..
-	} = params;
-
+	}: SealBlockParams<'_, B, SC, CB, E, P>
+)
+	where
+		B: BlockT,
+		H: Hasher<Out=<B as BlockT>::Hash>,
+		CB: ClientBackend<B, H>,
+		E: Environment<B>,
+		<E as Environment<B>>::Error: std::fmt::Display,
+		<E::Proposer as Proposer<B>>::Error: std::fmt::Display,
+		P: txpool::ChainApi<Block=B, Hash=<B as BlockT>::Hash>,
+		SC: SelectChain<B>,
+{
 	let future = async {
 		if pool.status().ready == 0 && !create_empty {
-			return Err(rpc::send_result(&mut sender, Err(Error::EmptyTransactionPool)));
+			return Err(Error::EmptyTransactionPool);
 		}
 
 		// get the header to build this new block on.
@@ -99,38 +99,28 @@ pub async fn seal_new_block<B, C, CB, E, P, H>(params: SealBlockParams<'_, B, C,
 		// or fetch the best_block.
 		let header = match parent_hash {
 			Some(hash) => {
-				back_end.blockchain().header(BlockId::Hash(hash))
-					.map_err(Error::from)
-					.and_then(|header| {
-						match header {
-							Some(header) => Ok(header),
-							None => Err(Error::BlockNotFound(format!("{}", hash)))
-						}
-					})
+				match back_end.blockchain().header(BlockId::Hash(hash))? {
+					Some(header) => header,
+					None => return Err(Error::BlockNotFound(format!("{}", hash))),
+				}
 			}
-			None => select_chain.best_chain().map_err(Error::from)
+			None => select_chain.best_chain()?
 		};
-
-		let header = header.map_err(|e| rpc::send_result(&mut sender, Err(e)))?;
 
 		let mut proposer = env.init(&header)
 			.map_err(|err| {
-				rpc::send_result(&mut sender, Err(Error::ProposerError(format!("{}", err))))
+				// <E as Environment<B>::Error>: fmt::Display
+				Error::StringError(format!("{}", err))
 			})?;
-
-		let id = inherent_data_provider.create_inherent_data()
+		let id = inherent_data_provider.create_inherent_data()?;
+		let block = proposer.propose(id, Default::default(), Duration::from_secs(5)).await
 			.map_err(|err| {
-				rpc::send_result(&mut sender, Err(err.into()))
+				// <<<E as Environment<B>::Proposer> as Proposer<B>>::Error: fmt::Display
+				Error::StringError(format!("{}", err))
 			})?;
 
-		let block = proposer.propose(id, Default::default(), Duration::from_secs(5))
-			.await
-			.map_err(|err| {
-				rpc::send_result(&mut sender, Err(Error::ProposerError(format!("{}", err))))
-			})?;
-
-		if block.extrinsics().len() == 0 && !create_empty {
-			return Err(rpc::send_result(&mut sender, Err(Error::EmptyTransactionPool)))
+		if block.extrinsics().is_empty() && !create_empty {
+			return Err(Error::EmptyTransactionPool);
 		}
 
 		let (header, body) = block.deconstruct();
@@ -147,19 +137,13 @@ pub async fn seal_new_block<B, C, CB, E, P, H>(params: SealBlockParams<'_, B, C,
 			import_existing: false,
 		};
 
-		match block_import.import_block(params, HashMap::new()) {
-			Ok(ImportResult::Imported(aux)) => {
-				rpc::send_result(&mut sender, Ok(CreatedBlock { hash: <B as BlockT>::Header::hash(&header), aux }))
-			}
-			Ok(other) => rpc::send_result(&mut sender, Err(other.into())),
-			Err(e) => {
-				log::warn!("Failed to import block: {:?}", e);
-				rpc::send_result(&mut sender, Err(e.into()))
-			}
-		};
-
-		Ok(())
+		match block_import.import_block(params, HashMap::new())? {
+			ImportResult::Imported(aux) => {
+				Ok(CreatedBlock { hash: <B as BlockT>::Header::hash(&header), aux })
+			},
+			other => Err(other.into()),
+		}
 	};
 
-	let _ = future.await;
+	rpc::send_result(&mut sender, future.await)
 }

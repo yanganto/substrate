@@ -1,4 +1,4 @@
-// Copyright 2019 Parity Technologies (UK) Ltd.
+// Copyright 2020 Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -20,6 +20,10 @@ use derive_more::{Display, From};
 use sp_consensus::{Error as ConsensusError, ImportResult};
 use sp_blockchain::Error as BlockchainError;
 use sp_inherents::Error as InherentsError;
+use futures::channel::{oneshot, mpsc::SendError};
+
+/// Error code for rpc
+const SERVER_SHUTTING_DOWN: i64 = -54321;
 
 /// errors encountered by background block authorship task
 #[derive(Display, Debug, From)]
@@ -37,9 +41,6 @@ pub enum Error {
 	/// Failed to create Inherents data
 	#[display(fmt = "Inherents Error: {}", _0)]
 	InherentError(InherentsError),
-	/// Proposer failed to propose new block
-	#[display(fmt = "Proposer Error: {}", _0)]
-	ProposerError(String),
 	/// error encountered during finalization
 	#[display(fmt = "Finalization Error: {}", _0)]
 	BlockchainError(BlockchainError),
@@ -47,7 +48,34 @@ pub enum Error {
 	#[display(fmt = "Supplied parent_hash: {} doesn't exist in chain", _0)]
 	#[from(ignore)]
 	BlockNotFound(String),
+	/// Some string error
+	#[display(fmt = "{}", _0)]
+	#[from(ignore)]
+	StringError(String),
+	///send error
+	#[display(fmt = "Consensus process is terminating")]
+	Canceled(oneshot::Canceled),
+	///send error
+	#[display(fmt = "Consensus process is terminating")]
+	SendError(SendError),
 	/// Some other error.
 	#[display(fmt="Other error: {}", _0)]
 	Other(Box<dyn std::error::Error + Send>),
+}
+
+impl std::convert::From<Error> for jsonrpc_core::Error {
+	fn from(error: Error) -> Self {
+		use Error::*;
+
+		let (code, message) = match error {
+			SendError(_) | Canceled(_) => (SERVER_SHUTTING_DOWN, "Consensus process is terminating".into()),
+			other => (500, format!("{}", other))
+		};
+
+		jsonrpc_core::Error {
+			code: jsonrpc_core::ErrorCode::ServerError(code),
+			message,
+			data: None
+		}
+	}
 }

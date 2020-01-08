@@ -16,13 +16,10 @@
 
 //! RPC interface for the ManualSeal Engine.
 use sp_consensus::ImportedAux;
-use jsonrpc_core::{Error, ErrorCode};
+use jsonrpc_core::Error;
 use jsonrpc_derive::rpc;
 use futures::{
-	channel::{
-		mpsc::{self, SendError},
-		oneshot,
-	},
+	channel::{mpsc, oneshot},
 	TryFutureExt,
 	FutureExt,
 	SinkExt
@@ -30,8 +27,6 @@ use futures::{
 use serde::{Deserialize, Serialize};
 use sp_runtime::Justification;
 pub use self::gen_client::Client as ManualSealClient;
-
-const SERVER_SHUTTING_DOWN: i64 = -54321;
 
 /// Future's type for jsonrpc
 type FutureResult<T> = Box<dyn jsonrpc_core::futures::Future<Item = T, Error = Error> + Send>;
@@ -126,31 +121,11 @@ impl<Hash: Send + 'static> ManualSealApi<Hash> for ManualSeal<Hash> {
 				parent_hash,
 				sender: Some(sender),
 			};
-			sink.send(command).await.map_err(map_error)?;
-
-			match receiver.await {
-				// all good
-				Ok(Ok(block)) => Ok(block),
-				// error from the authorship task
-				Ok(Err(e)) => {
-					Err(Error {
-						code: ErrorCode::ServerError(500),
-						message: format!("{}", e),
-						data: None,
-					})
-				}
-				// channel has been dropped
-				Err(_) => {
-					Err(Error {
-						code: ErrorCode::ServerError(SERVER_SHUTTING_DOWN),
-						message: "Consensus process is terminating".into(),
-						data: None,
-					})
-				}
-			}
+			sink.send(command).await?;
+			receiver.await?
 		}.boxed();
 
-		Box::new(future.compat())
+		Box::new(future.boxed().map_err(Error::from).compat())
 	}
 
 	fn finalize_block(&self, hash: Hash, justification: Option<Justification>) -> FutureResult<bool> {
@@ -159,44 +134,12 @@ impl<Hash: Send + 'static> ManualSealApi<Hash> for ManualSeal<Hash> {
 			let (sender, receiver) = oneshot::channel();
 			sink.send(
 				EngineCommand::FinalizeBlock { hash, sender: Some(sender), justification }
-			).await.map_err(map_error)?;
+			).await?;
 
-			match receiver.await {
-				// all good
-				Ok(Ok(())) => Ok(true),
-				// error from the authorship task
-				Ok(Err(e)) => {
-					Err(Error {
-						code: ErrorCode::ServerError(500),
-						message: format!("{}", e),
-						data: None
-					})
-				}
-				// channel has been dropped
-				Err(_) => {
-					Err(Error {
-						code: ErrorCode::ServerError(SERVER_SHUTTING_DOWN),
-						message: "Consensus process is terminating".into(),
-						data: None
-					})
-				}
-			}
-		}.boxed();
+			receiver.await?.map(|_| true)
+		};
 
-		Box::new(future.compat())
-	}
-}
-
-/// convert a futures::mpsc::SendError to jsonrpc::Error
-fn map_error(error: SendError) -> Error {
-	if error.is_disconnected() {
-		log::warn!("Received sealing request but Manual Sealing task has been dropped");
-	}
-
-	Error {
-		code: ErrorCode::ServerError(SERVER_SHUTTING_DOWN),
-		message: "Consensus process is terminating".into(),
-		data: None
+		Box::new(future.boxed().map_err(Error::from).compat())
 	}
 }
 
