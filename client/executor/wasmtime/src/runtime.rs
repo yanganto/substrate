@@ -40,17 +40,18 @@ use cranelift_frontend::FunctionBuilderContext;
 use cranelift_wasm::DefinedFuncIndex;
 use wasmtime_environ::{Module, translate_signature};
 use wasmtime_jit::{
-	ActionOutcome, CodeMemory, CompilationStrategy, CompiledModule, Compiler, Context, RuntimeValue,
-	Resolver,
+	invoke, ActionOutcome, CodeMemory, CompilationStrategy, CompiledModule, Compiler, Context,
+	RuntimeValue, Resolver,
 };
 use wasmtime_runtime::{Export, Imports, InstanceHandle, VMFunctionBody};
 
 /// A `WasmRuntime` implementation using the Wasmtime JIT to compile the runtime module to native
 /// and execute the compiled code.
 pub struct WasmtimeRuntime {
+	compiler: Compiler,
 	module: CompiledModule,
-	context: Context,
 	global_exports: Rc<RefCell<HashMap<String, Option<Export>>>>,
+	env_instance: InstanceHandle,
 	max_heap_pages: Option<u32>,
 	heap_pages: u32,
 	/// The host functions registered for this instance.
@@ -78,7 +79,8 @@ impl WasmRuntime for WasmtimeRuntime {
 
 	fn call(&mut self, ext: &mut dyn Externalities, method: &str, data: &[u8]) -> Result<Vec<u8>> {
 		call_method(
-			&mut self.context,
+			&mut self.compiler,
+			&mut self.env_instance,
 			Rc::clone(&self.global_exports),
 			&mut self.module,
 			ext,
@@ -178,8 +180,9 @@ pub fn create_instance(
 
 	let mut compiler = new_compiler(CompilationStrategy::Cranelift)?;
 	let mut resolver = RuntimeInterfaceResolver::new(&mut env_instance, enable_stub);
-	let (compiled_module, context) = create_compiled_unit(
-		compiler,
+	let missing_functions = resolver.missing_functions.clone();
+	let compiled_module = create_compiled_unit(
+		&mut compiler,
 		code,
 		&mut resolver,
 		Rc::clone(&global_exports),
@@ -207,44 +210,35 @@ pub fn create_instance(
 		heap_pages_valid(heap_pages, max_heap_pages).ok_or_else(|| WasmError::InvalidHeapPages)?;
 
 	Ok(WasmtimeRuntime {
+		compiler,
 		module: compiled_module,
-		context,
 		max_heap_pages,
 		heap_pages,
 		host_functions,
 		global_exports,
+		env_instance,
 		enable_stub,
-		missing_functions: resolver.missing_functions.clone(),
+		missing_functions,
 	})
 }
 
 fn create_compiled_unit(
-	mut compiler: Compiler,
+	mut compiler: &mut Compiler,
 	code: &[u8],
 	resolver: &mut dyn Resolver,
 	global_exports: Rc<RefCell<HashMap<String, Option<Export>>>>,
 	host_functions: &[&'static dyn Function],
 	enable_stub: bool,
-) -> std::result::Result<(CompiledModule, Context), WasmError> {
+) -> std::result::Result<CompiledModule, WasmError> {
 	//panic!("{:?}", global_exports.borrow().keys().collect::<Vec<_>>());
-	let module = CompiledModule::new(&mut compiler, code, resolver, global_exports, false)
-		.map_err(|e| WasmError::Other(format!("boo: {}", e)))?;
-	panic!("boo");
-	let mut context = Context::new(Box::new(compiler));
-
-	// Enable/disable producing of debug info.
-	context.set_debug_info(false);
-
-	// Compile the wasm module.
-	let module = context.compile_module(&code)
-		.map_err(|e| WasmError::Other(format!("module compile error: {}", e)))?;
-
-	Ok((module, context))
+	CompiledModule::new(&mut compiler, code, resolver, global_exports, false)
+		.map_err(|e| WasmError::Other(format!("boo: {}", e)))
 }
 
 /// Call a function inside a precompiled Wasm module.
 fn call_method(
-	context: &mut Context,
+	compiler: &mut Compiler,
+	env_instance: &mut InstanceHandle,
 	global_exports: Rc<RefCell<HashMap<String, Option<Export>>>>,
 	module: &mut CompiledModule,
 	ext: &mut dyn Externalities,
@@ -273,10 +267,10 @@ fn call_method(
 	// Initialize the function executor state.
 	let heap_base = get_heap_base(&instance)?;
 	let executor_state = FunctionExecutorState::new(heap_base);
-	reset_env_state_and_take_trap(context, Some(executor_state))?;
+	reset_env_state_and_take_trap(env_instance, Some(executor_state))?;
 
 	// Write the input data into guest memory.
-	let (data_ptr, data_len) = inject_input_data(context, &mut instance, data)?;
+	let (data_ptr, data_len) = inject_input_data(env_instance, &mut instance, data)?;
 	let args = [
 		RuntimeValue::I32(u32::from(data_ptr) as i32),
 		RuntimeValue::I32(data_len as i32),
@@ -284,17 +278,17 @@ fn call_method(
 
 	// Invoke the function in the runtime.
 	let outcome = sp_externalities::set_and_run_with_externalities(ext, || {
-		context
-			.invoke(&mut instance, method, &args[..])
+		invoke(compiler, &mut instance, method, &args[..])
 			.map_err(|e| Error::Other(format!("error calling runtime: {}", e)))
 	})?;
-	let trap_error = reset_env_state_and_take_trap(context, None)?;
+	let trap_error = reset_env_state_and_take_trap(env_instance, None)?;
 	let (output_ptr, output_len) = match outcome {
 		ActionOutcome::Returned { values } => match values.as_slice() {
 			[RuntimeValue::I64(retval)] => unpack_ptr_and_len(*retval as u64),
 			_ => return Err(Error::InvalidReturn),
 		},
 		ActionOutcome::Trapped { message } => {
+			//panic!("boo");
 			return Err(
 				trap_error.unwrap_or_else(|| format!("Wasm execution trapped: {}", message).into())
 			)
@@ -405,9 +399,7 @@ fn grow_memory(instance: &mut InstanceHandle, pages: u32) -> Result<()> {
 		.ok_or_else(|| "requested heap_pages would exceed maximum memory size".into())
 }
 
-fn get_env_state(context: &mut Context) -> Result<&mut EnvState> {
-	let env_instance = context.get_instance("env")
-		.map_err(|err| format!("cannot find \"env\" module: {}", err))?;
+fn get_env_state(env_instance: &mut InstanceHandle) -> Result<&mut EnvState> {
 	env_instance
 		.host_state()
 		.downcast_mut::<EnvState>()
@@ -415,20 +407,20 @@ fn get_env_state(context: &mut Context) -> Result<&mut EnvState> {
 }
 
 fn reset_env_state_and_take_trap(
-	context: &mut Context,
+	env_instance: &mut InstanceHandle,
 	executor_state: Option<FunctionExecutorState>,
 ) -> Result<Option<Error>> {
-	let env_state = get_env_state(context)?;
+	let env_state = get_env_state(env_instance)?;
 	env_state.executor_state = executor_state;
 	Ok(env_state.take_trap())
 }
 
 fn inject_input_data(
-	context: &mut Context,
+	env_instance: &mut InstanceHandle,
 	instance: &mut InstanceHandle,
 	data: &[u8],
 ) -> Result<(Pointer<u8>, WordSize)> {
-	let env_state = get_env_state(context)?;
+	let env_state = get_env_state(env_instance)?;
 	let executor_state = env_state
 		.executor_state
 		.as_mut()

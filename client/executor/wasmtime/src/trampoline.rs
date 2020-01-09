@@ -413,8 +413,8 @@ impl TrampolineState {
 		code_memory: CodeMemory,
 		func_addr: *const VMFunctionBody,
 	) -> Self {
-		let mut trap_registry = get_mut_trap_registry();
-		let mut trap_registration_guards = Vec::new();
+		let trap_registry = get_mut_trap_registry();
+		let trap_registration_guards = Vec::new();
 		TrampolineState {
 			func,
 			code_memory,
