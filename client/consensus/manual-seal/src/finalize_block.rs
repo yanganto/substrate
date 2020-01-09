@@ -39,7 +39,7 @@ pub struct FinalizeBlockParams<B: BlockT, CB> {
 }
 
 /// finalizes a block in the backend with the given params.
-pub fn finalize_block<B, H, CB>(params: FinalizeBlockParams<B, CB>)
+pub async fn finalize_block<B, H, CB>(params: FinalizeBlockParams<B, CB>)
 	where
 		B: BlockT,
 		H: Hasher<Out=<B as BlockT>::Hash>,

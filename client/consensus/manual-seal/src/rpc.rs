@@ -125,7 +125,7 @@ impl<Hash: Send + 'static> ManualSealApi<Hash> for ManualSeal<Hash> {
 			receiver.await?
 		}.boxed();
 
-		Box::new(future.boxed().map_err(Error::from).compat())
+		Box::new(future.map_err(Error::from).compat())
 	}
 
 	fn finalize_block(&self, hash: Hash, justification: Option<Justification>) -> FutureResult<bool> {

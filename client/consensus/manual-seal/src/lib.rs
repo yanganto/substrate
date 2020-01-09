@@ -118,7 +118,7 @@ pub async fn run_manual_seal<B, CB, E, A, C, S, H>(
 	mut block_import: BoxBlockImport<B>,
 	mut env: E,
 	back_end: Arc<CB>,
-	basic_pool: Arc<BasicPool<A, B>>,
+	pool: Arc<txpool::Pool<A>>,
 	mut seal_block_channel: S,
 	select_chain: C,
 	inherent_data_providers: InherentDataProviders,
@@ -134,8 +134,6 @@ pub async fn run_manual_seal<B, CB, E, A, C, S, H>(
 		S: Stream<Item=EngineCommand<<B as BlockT>::Hash>> + Unpin + 'static,
 		C: SelectChain<B> + 'static,
 {
-	let pool = basic_pool.pool();
-
 	while let Some(command) = seal_block_channel.next().await {
 		match command {
 			EngineCommand::SealNewBlock {
@@ -167,7 +165,7 @@ pub async fn run_manual_seal<B, CB, E, A, C, S, H>(
 						justification,
 						back_end: back_end.clone(),
 					}
-				)
+				).await
 			}
 		}
 	}
@@ -180,7 +178,7 @@ pub async fn run_instant_seal<B, CB, H, E, A, C>(
 	block_import: BoxBlockImport<B>,
 	env: E,
 	back_end: Arc<CB>,
-	basic_pool: Arc<BasicPool<A, B>>,
+	pool: Arc<txpool::Pool<A>>,
 	select_chain: C,
 	inherent_data_providers: InherentDataProviders,
 )
@@ -196,7 +194,7 @@ pub async fn run_instant_seal<B, CB, H, E, A, C>(
 {
 	// instant-seal creates blocks as soon as transactions are imported
 	// into the transaction pool.
-	let seal_block_channel = basic_pool.pool().import_notification_stream()
+	let seal_block_channel = pool.import_notification_stream()
 		.map(|_| {
 			EngineCommand::SealNewBlock {
 				create_empty: false,
@@ -210,7 +208,7 @@ pub async fn run_instant_seal<B, CB, H, E, A, C>(
 		block_import,
 		env,
 		back_end,
-		basic_pool,
+		pool,
 		seal_block_channel,
 		select_chain,
 		inherent_data_providers,
