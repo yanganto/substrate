@@ -27,11 +27,11 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 			info!("Roles: {}", display_role(&config));
 			let runtime = Runtime::new().map_err(|e| format!("{:?}", e))?;
 			match config.roles {
-				ServiceRoles::LIGHT => run_until_exit(
-					runtime,
-					service::new_light(config)?,
-					exit
-				),
+//				ServiceRoles::LIGHT => run_until_exit(
+//					runtime,
+//					service::new_light(config)?,
+//					exit
+//				),
 				_ => run_until_exit(
 					runtime,
 					service::new_full(config)?,
@@ -40,16 +40,17 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 			}
 		}),
 		ParseAndPrepare::BuildSpec(cmd) => cmd.run::<NoCustom, _, _, _>(load_spec),
-		ParseAndPrepare::ExportBlocks(cmd) => cmd.run_with_builder(|config: Config<_>|
-			Ok(new_full_start!(config).0), load_spec, exit),
-		ParseAndPrepare::ImportBlocks(cmd) => cmd.run_with_builder(|config: Config<_>|
-			Ok(new_full_start!(config).0), load_spec, exit),
-		ParseAndPrepare::CheckBlock(cmd) => cmd.run_with_builder(|config: Config<_>|
-			Ok(new_full_start!(config).0), load_spec, exit),
-		ParseAndPrepare::PurgeChain(cmd) => cmd.run(load_spec),
-		ParseAndPrepare::RevertChain(cmd) => cmd.run_with_builder(|config: Config<_>|
-			Ok(new_full_start!(config).0), load_spec),
-		ParseAndPrepare::CustomCommand(_) => Ok(())
+//		ParseAndPrepare::ExportBlocks(cmd) => cmd.run_with_builder(|config: Config<_>|
+//			Ok(new_full_start!(config).0), load_spec, exit),
+//		ParseAndPrepare::ImportBlocks(cmd) => cmd.run_with_builder(|config: Config<_>|
+//			Ok(new_full_start!(config).0), load_spec, exit),
+//		ParseAndPrepare::CheckBlock(cmd) => cmd.run_with_builder(|config: Config<_>|
+//			Ok(new_full_start!(config).0), load_spec, exit),
+//		ParseAndPrepare::PurgeChain(cmd) => cmd.run(load_spec),
+//		ParseAndPrepare::RevertChain(cmd) => cmd.run_with_builder(|config: Config<_>|
+//			Ok(new_full_start!(config).0), load_spec),
+		ParseAndPrepare::CustomCommand(_) => Ok(()),
+		_ => panic!("")
 	}?;
 
 	Ok(())

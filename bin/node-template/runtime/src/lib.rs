@@ -84,8 +84,8 @@ pub mod opaque {
 
 	impl_opaque_keys! {
 		pub struct SessionKeys {
-			pub aura: Aura,
-			pub grandpa: Grandpa,
+//			pub aura: Aura,
+//			pub grandpa: Grandpa,
 		}
 	}
 }
@@ -163,13 +163,13 @@ impl system::Trait for Runtime {
 	type ModuleToIndex = ModuleToIndex;
 }
 
-impl aura::Trait for Runtime {
-	type AuthorityId = AuraId;
-}
+//impl aura::Trait for Runtime {
+//	type AuthorityId = AuraId;
+//}
 
-impl grandpa::Trait for Runtime {
-	type Event = Event;
-}
+//impl grandpa::Trait for Runtime {
+//	type Event = Event;
+//}
 
 impl indices::Trait for Runtime {
 	/// The type for recording indexing into the account enumeration. If this ever overflows, there
@@ -187,12 +187,12 @@ parameter_types! {
 	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
 
-impl timestamp::Trait for Runtime {
-	/// A timestamp: milliseconds since the unix epoch.
-	type Moment = u64;
-	type OnTimestampSet = Aura;
-	type MinimumPeriod = MinimumPeriod;
-}
+//impl timestamp::Trait for Runtime {
+//	/// A timestamp: milliseconds since the unix epoch.
+//	type Moment = u64;
+//	type OnTimestampSet = Aura;
+//	type MinimumPeriod = MinimumPeriod;
+//}
 
 parameter_types! {
 	pub const ExistentialDeposit: u128 = 500;
@@ -247,9 +247,9 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic
 	{
 		System: system::{Module, Call, Storage, Config, Event},
-		Timestamp: timestamp::{Module, Call, Storage, Inherent},
-		Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
-		Grandpa: grandpa::{Module, Call, Storage, Config, Event},
+//		Timestamp: timestamp::{Module, Call, Storage, Inherent},
+//		Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
+//		Grandpa: grandpa::{Module, Call, Storage, Config, Event},
 		Indices: indices,
 		Balances: balances,
 		TransactionPayment: transaction_payment::{Module, Storage},
@@ -344,15 +344,15 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
-		fn slot_duration() -> u64 {
-			Aura::slot_duration()
-		}
-
-		fn authorities() -> Vec<AuraId> {
-			Aura::authorities()
-		}
-	}
+//	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
+//		fn slot_duration() -> u64 {
+//			Aura::slot_duration()
+//		}
+//
+//		fn authorities() -> Vec<AuraId> {
+//			Aura::authorities()
+//		}
+//	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
@@ -360,9 +360,9 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl fg_primitives::GrandpaApi<Block> for Runtime {
-		fn grandpa_authorities() -> GrandpaAuthorityList {
-			Grandpa::grandpa_authorities()
-		}
-	}
+//	impl fg_primitives::GrandpaApi<Block> for Runtime {
+//		fn grandpa_authorities() -> GrandpaAuthorityList {
+//			Grandpa::grandpa_authorities()
+//		}
+//	}
 }
