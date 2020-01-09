@@ -28,9 +28,17 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_codegen::print_errors::pretty_error;
 use wasmtime_jit::{CodeMemory, Compiler};
 use wasmtime_environ::CompiledFunction;
-use wasmtime_runtime::{VMContext, VMFunctionBody};
+use wasmtime_runtime::{VMContext, VMFunctionBody, InstanceHandle, get_mut_trap_registry, TrapRegistrationGuard, Imports};
 use sp_wasm_interface::{Function, Value, ValueType};
 use std::{cmp, panic::{self, AssertUnwindSafe}, ptr};
+use std::any::Any;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+use cranelift_wasm::DefinedFuncIndex;
+use cranelift_entity::{PrimaryMap, EntityRef};
+use wasmtime_environ::{Module, translate_signature};
+use crate::util::{cranelift_ir_signature};
 
 const CALL_SUCCESS: u32 = 0;
 const CALL_FAILED_WITH_ERROR: u32 = 1;
@@ -358,4 +366,114 @@ unsafe fn read_value_from(p: *const i64, ty: ValueType) -> Value {
 		ValueType::F32 => Value::F32(ptr::read(p as *const u32)),
 		ValueType::F64 => Value::F64(ptr::read(p as *const u64)),
 	}
+}
+
+pub(crate) fn create_handle(
+	module: Module,
+	finished_functions: PrimaryMap<DefinedFuncIndex, *const VMFunctionBody>,
+	state: Box<dyn Any>,
+) -> Result<InstanceHandle, WasmError> {
+	let global_exports: Rc<RefCell<HashMap<String, Option<wasmtime_runtime::Export>>>> =
+		Rc::new(RefCell::new(HashMap::new()));
+
+	let imports = Imports::new(
+		HashSet::new(),
+		PrimaryMap::new(),
+		PrimaryMap::new(),
+		PrimaryMap::new(),
+		PrimaryMap::new(),
+	);
+	let data_initializers = Vec::new();
+
+	let signatures = PrimaryMap::new();
+
+	Ok(InstanceHandle::new(
+		Rc::new(module),
+		global_exports,
+		finished_functions.into_boxed_slice(),
+		imports,
+		&data_initializers,
+		signatures.into_boxed_slice(),
+		None,
+		state,
+	)
+	.expect("instance"))
+}
+
+struct TrampolineState {
+	func: &'static dyn Function,
+	#[allow(dead_code)]
+	code_memory: CodeMemory,
+	trap_registration_guards: Vec<TrapRegistrationGuard>,
+}
+
+impl TrampolineState {
+	fn new(
+		func: &'static dyn Function,
+		code_memory: CodeMemory,
+		func_addr: *const VMFunctionBody,
+	) -> Self {
+		let mut trap_registry = get_mut_trap_registry();
+		let mut trap_registration_guards = Vec::new();
+		TrampolineState {
+			func,
+			code_memory,
+			trap_registration_guards,
+		}
+	}
+}
+
+pub fn create_handle_with_function(
+	func: &'static dyn Function,
+) -> Result<InstanceHandle, WasmError> {
+	let isa_builder = cranelift_native::builder()
+		.map_err(|e| WasmError::Other(format!("missing compiler support: {}", e)))?;
+	let flag_builder = cranelift_codegen::settings::builder();
+	let isa = isa_builder.finish(cranelift_codegen::settings::Flags::new(flag_builder));
+
+	let pointer_type = isa.pointer_type();
+	let call_conv = isa.default_call_conv();
+
+	let sig = translate_signature(
+		cranelift_ir_signature(func.signature(), &call_conv),
+		pointer_type,
+	);
+
+	let mut fn_builder_ctx = FunctionBuilderContext::new();
+	let mut module = Module::new();
+	let mut finished_functions: PrimaryMap<DefinedFuncIndex, *const VMFunctionBody> =
+		PrimaryMap::new();
+	let mut code_memory = CodeMemory::new();
+
+	let sig_id = module.signatures.push(sig.clone());
+	let func_id = module.functions.push(sig_id);
+	module
+		.exports
+		.insert("trampoline".to_string(), wasmtime_environ::Export::Function(func_id));
+	let trampoline = make_trampoline(
+		isa.as_ref(),
+		&mut code_memory,
+		&mut fn_builder_ctx,
+		func_id.index() as u32,
+		&sig,
+	)?;
+	code_memory.publish();
+
+	finished_functions.push(trampoline);
+
+	let trampoline_state = TrampolineState::new(func.clone(), code_memory, trampoline);
+
+	create_handle(
+		module,
+		finished_functions,
+		Box::new(trampoline_state),
+	)
+}
+
+pub fn generate_func_export(
+	func: &'static dyn Function,
+) -> Result<(wasmtime_runtime::InstanceHandle, wasmtime_runtime::Export), WasmError> {
+	let mut instance = create_handle_with_function(func)?;
+	let export = instance.lookup("trampoline").expect("trampoline export");
+	Ok((instance, export))
 }

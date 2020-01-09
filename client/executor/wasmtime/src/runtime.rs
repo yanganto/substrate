@@ -17,7 +17,7 @@
 //! Defines the compiled Wasm runtime that uses Wasmtime internally.
 
 use crate::function_executor::FunctionExecutorState;
-use crate::trampoline::{EnvState, make_trampoline};
+use crate::trampoline::{EnvState, make_trampoline, generate_func_export};
 use crate::util::{cranelift_ir_signature, read_memory_into, write_memory_from};
 
 use sc_executor_common::{
@@ -91,10 +91,36 @@ impl WasmRuntime for WasmtimeRuntime {
 	}
 }
 
+mod wasmtime_missing_externals {
+	use sp_wasm_interface::{Function, FunctionContext, HostFunctions, Result, Signature, Value};
+
+	pub struct MissingExternalFunction(&'static str);
+
+	impl Function for MissingExternalFunction {
+		fn name(&self) -> &str { self.0 }
+
+		fn signature(&self) -> Signature {
+			Signature::new(vec![], None)
+		}
+
+		fn execute(
+			&self,
+			_context: &mut dyn FunctionContext,
+			_args: &mut dyn Iterator<Item = Value>,
+		) -> Result<Option<Value>> {
+			panic!("should not be called");
+		}
+	}
+
+	pub static MISSING_EXTERNAL_FUNCTION: &'static MissingExternalFunction =
+		&MissingExternalFunction("missing_external");
+}
+
 struct RuntimeInterfaceResolver<'a> {
 	env_instance: &'a mut InstanceHandle,
 	enable_stub: bool,
 	missing_functions: Vec<String>,
+	stub_instance: Option<InstanceHandle>,
 }
 
 impl<'a> RuntimeInterfaceResolver<'a> {
@@ -106,24 +132,32 @@ impl<'a> RuntimeInterfaceResolver<'a> {
 			env_instance,
 			enable_stub,
 			missing_functions: Vec::new(),
+			stub_instance: None,
 		}
 	}
 }
 
 impl<'a> Resolver for RuntimeInterfaceResolver<'a> {
 	fn resolve(&mut self, module: &str, field: &str) -> Option<Export> {
+		eprintln!("resolve: {}.{}", module, field);
 		match module {
-			"env" => self.env_instance.lookup(field),
-			_ => {
-				panic!("boo");
-				if self.enable_stub {
+			"env" => match self.env_instance.lookup(field) {
+				None => if self.enable_stub {
 					self.missing_functions.push(field.to_string());
 					eprintln!("missing export: {}", field);
-					//return Some(wasmtime_environ::Export::Function(cranelift_wasm::FuncIndex::from_u32(u32::max_value())));
-				}
-
-				None
+					//Some(wasmtime_environ::Export::Function(cranelift_wasm::FuncIndex::from_u32(u32::max_value())))
+					//None
+					//Some(self.env_instance.lookup("ext_logging_log_version_1").unwrap())
+					let (stub_instance, export) = generate_func_export(wasmtime_missing_externals::MISSING_EXTERNAL_FUNCTION).unwrap();
+					self.stub_instance = Some(stub_instance);
+					Some(export)
+					//Some(self.stub_instance.lookup("missing_external").unwrap())
+				} else {
+					None
+				},
+				x => x,
 			},
+			_ => None,
 		}
 	}
 }
@@ -192,6 +226,7 @@ fn create_compiled_unit(
 	host_functions: &[&'static dyn Function],
 	enable_stub: bool,
 ) -> std::result::Result<(CompiledModule, Context), WasmError> {
+	//panic!("{:?}", global_exports.borrow().keys().collect::<Vec<_>>());
 	let module = CompiledModule::new(&mut compiler, code, resolver, global_exports, false)
 		.map_err(|e| WasmError::Other(format!("boo: {}", e)))?;
 	panic!("boo");
@@ -295,6 +330,7 @@ fn instantiate_env_module(
 		);
 		let sig_id = module.signatures.push(sig.clone());
 		let func_id = module.functions.push(sig_id);
+		eprintln!("insert: {}", function.name().to_string());
 		module.exports.insert(
 			function.name().to_string(),
 			wasmtime_environ::Export::Function(func_id),
