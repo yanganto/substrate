@@ -122,7 +122,7 @@ struct RuntimeInterfaceResolver<'a> {
 	env_instance: &'a mut InstanceHandle,
 	enable_stub: bool,
 	missing_functions: Vec<String>,
-	stub_instance: Option<InstanceHandle>,
+	stub_instance: Vec<InstanceHandle>,
 }
 
 impl<'a> RuntimeInterfaceResolver<'a> {
@@ -134,7 +134,7 @@ impl<'a> RuntimeInterfaceResolver<'a> {
 			env_instance,
 			enable_stub,
 			missing_functions: Vec::new(),
-			stub_instance: None,
+			stub_instance: Vec::new(),
 		}
 	}
 }
@@ -147,13 +147,9 @@ impl<'a> Resolver for RuntimeInterfaceResolver<'a> {
 				None => if self.enable_stub {
 					self.missing_functions.push(field.to_string());
 					eprintln!("missing export: {}", field);
-					//Some(wasmtime_environ::Export::Function(cranelift_wasm::FuncIndex::from_u32(u32::max_value())))
-					//None
-					//Some(self.env_instance.lookup("ext_logging_log_version_1").unwrap())
-					let (stub_instance, export) = generate_func_export(wasmtime_missing_externals::MISSING_EXTERNAL_FUNCTION).unwrap();
-					self.stub_instance = Some(stub_instance);
+					let (mut stub_instance, export) = generate_func_export(wasmtime_missing_externals::MISSING_EXTERNAL_FUNCTION).unwrap();
+					self.stub_instance.push(stub_instance);
 					Some(export)
-					//Some(self.stub_instance.lookup("missing_external").unwrap())
 				} else {
 					None
 				},
