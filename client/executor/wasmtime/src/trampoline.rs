@@ -39,6 +39,7 @@ use cranelift_wasm::DefinedFuncIndex;
 use cranelift_entity::{PrimaryMap, EntityRef};
 use wasmtime_environ::{Module, translate_signature};
 use crate::util::{cranelift_ir_signature};
+use crate::runtime::{get_heap_base, grow_memory};
 
 const CALL_SUCCESS: u32 = 0;
 const CALL_FAILED_WITH_ERROR: u32 = 1;
@@ -92,6 +93,7 @@ impl EnvState {
 /// on failure.
 unsafe extern "C" fn stub_fn(vmctx: *mut VMContext, func_index: u32, values_vec: *mut i64) -> u32 {
 	if let Some(state) = (*vmctx).host_state().downcast_mut::<EnvState>() {
+			println!("boo4 {:?}", state.executor_state.as_mut().is_some());
 			match stub_fn_inner(
 				vmctx,
 				&state.host_functions,
@@ -102,11 +104,14 @@ unsafe extern "C" fn stub_fn(vmctx: *mut VMContext, func_index: u32, values_vec:
 			) {
 				Ok(()) => CALL_SUCCESS,
 				Err(err) => {
+					println!("boo1 {:?}", err);
 					state.trap = Some(err);
+					println!("boo3");
 					CALL_FAILED_WITH_ERROR
 				}
 			}
 	} else {
+		println!("boo2");
 		// Well, we can't even set a trap message, so we'll just exit without one.
 		CALL_WITH_BAD_HOST_STATE
 	}
@@ -387,6 +392,7 @@ pub(crate) fn create_handle(
 
 	let signatures = PrimaryMap::new();
 
+	println!("boo5 {:?}", state.downcast_ref::<EnvState>().unwrap().executor_state.is_some());
 	Ok(InstanceHandle::new(
 		Rc::new(module),
 		global_exports,
@@ -402,8 +408,10 @@ pub(crate) fn create_handle(
 
 struct TrampolineState {
 	func: &'static dyn Function,
+	compiler: Compiler,
 	#[allow(dead_code)]
 	code_memory: CodeMemory,
+	trap: Option<Error>,
 	trap_registration_guards: Vec<TrapRegistrationGuard>,
 }
 
@@ -411,15 +419,23 @@ impl TrampolineState {
 	fn new(
 		func: &'static dyn Function,
 		code_memory: CodeMemory,
+		compiler: Compiler,
 		func_addr: *const VMFunctionBody,
 	) -> Self {
 		let trap_registry = get_mut_trap_registry();
 		let trap_registration_guards = Vec::new();
 		TrampolineState {
 			func,
+			compiler,
 			code_memory,
+			trap: None,
 			trap_registration_guards,
 		}
+	}
+
+	/// Resets the trap error to None and returns the current value.
+	pub fn take_trap(&mut self) -> Option<Error> {
+		self.trap.take()
 	}
 }
 
@@ -463,7 +479,7 @@ pub fn create_handle_with_function(
 	finished_functions.push(trampoline);
 
 	//let trampoline_state = TrampolineState::new(func.clone(), code_memory, compiler, trampoline);
-	let trampoline_state = EnvState::new(code_memory, compiler, &[func.clone()]);
+	let mut trampoline_state = EnvState::new(code_memory, compiler, &[func]);
 
 	create_handle(
 		module,
@@ -477,6 +493,18 @@ pub fn generate_func_export(
 	compiler: Compiler,
 ) -> Result<(wasmtime_runtime::InstanceHandle, wasmtime_runtime::Export), WasmError> {
 	let mut instance = create_handle_with_function(func, compiler)?;
+
+	unsafe {
+		println!("boo7 {:?}", instance.lookup_immutable("memory").is_some());
+	}
+	let heap_pages = 100;
+	grow_memory(&mut instance, heap_pages).expect("could not expand memory");
+	let heap_base = get_heap_base(&instance).expect("could not get heap base");
+	if let Some(state) = instance.host_state().downcast_mut::<EnvState>() {
+		state.executor_state = Some(FunctionExecutorState::new(heap_base));
+		state.take_trap();
+	}
+
 	let export = instance.lookup("trampoline").expect("trampoline export");
 	Ok((instance, export))
 }

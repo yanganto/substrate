@@ -111,8 +111,8 @@ mod wasmtime_missing_externals {
 			_args: &mut dyn Iterator<Item = Value>,
 		) -> Result<Option<Value>> {
 			//panic!("should not be called");
-			//Ok(None)
-			Err("boo".to_string())
+			Ok(None)
+			//Err("boo".to_string())
 		}
 	}
 
@@ -346,6 +346,7 @@ fn instantiate_env_module(
 	let signatures = PrimaryMap::new();
 	let env_state = EnvState::new(code_memory, compiler, host_functions);
 
+	println!("boo6 {:?}", env_state.executor_state.is_some());
 	let result = InstanceHandle::new(
 		Rc::new(module),
 		global_exports,
@@ -378,7 +379,7 @@ fn clear_globals(global_exports: &mut HashMap<String, Option<Export>>) {
 	global_exports.remove("__indirect_function_table");
 }
 
-fn grow_memory(instance: &mut InstanceHandle, pages: u32) -> Result<()> {
+pub(crate) fn grow_memory(instance: &mut InstanceHandle, pages: u32) -> Result<()> {
 	// This is safe to wrap in an unsafe block as:
 	// - The result of the `lookup_immutable` call is not mutated
 	// - The definition pointer is returned by a lookup on a valid instance
@@ -452,7 +453,7 @@ fn get_memory_mut(instance: &mut InstanceHandle) -> Result<&mut [u8]> {
 	}
 }
 
-fn get_heap_base(instance: &InstanceHandle) -> Result<u32> {
+pub(crate) fn get_heap_base(instance: &InstanceHandle) -> Result<u32> {
 	// This is safe to wrap in an unsafe block as:
 	// - The result of the `lookup_immutable` call is not mutated
 	// - The definition pointer is returned by a lookup on a valid instance
