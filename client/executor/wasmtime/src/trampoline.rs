@@ -425,6 +425,7 @@ impl TrampolineState {
 
 pub fn create_handle_with_function(
 	func: &'static dyn Function,
+	compiler: Compiler,
 ) -> Result<InstanceHandle, WasmError> {
 	let isa_builder = cranelift_native::builder()
 		.map_err(|e| WasmError::Other(format!("missing compiler support: {}", e)))?;
@@ -461,7 +462,8 @@ pub fn create_handle_with_function(
 
 	finished_functions.push(trampoline);
 
-	let trampoline_state = TrampolineState::new(func.clone(), code_memory, trampoline);
+	//let trampoline_state = TrampolineState::new(func.clone(), code_memory, compiler, trampoline);
+	let trampoline_state = EnvState::new(code_memory, compiler, &[func.clone()]);
 
 	create_handle(
 		module,
@@ -472,8 +474,9 @@ pub fn create_handle_with_function(
 
 pub fn generate_func_export(
 	func: &'static dyn Function,
+	compiler: Compiler,
 ) -> Result<(wasmtime_runtime::InstanceHandle, wasmtime_runtime::Export), WasmError> {
-	let mut instance = create_handle_with_function(func)?;
+	let mut instance = create_handle_with_function(func, compiler)?;
 	let export = instance.lookup("trampoline").expect("trampoline export");
 	Ok((instance, export))
 }

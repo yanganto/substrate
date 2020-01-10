@@ -110,7 +110,9 @@ mod wasmtime_missing_externals {
 			_context: &mut dyn FunctionContext,
 			_args: &mut dyn Iterator<Item = Value>,
 		) -> Result<Option<Value>> {
-			panic!("should not be called");
+			//panic!("should not be called");
+			//Ok(None)
+			Err("boo".to_string())
 		}
 	}
 
@@ -147,7 +149,8 @@ impl<'a> Resolver for RuntimeInterfaceResolver<'a> {
 				None => if self.enable_stub {
 					self.missing_functions.push(field.to_string());
 					eprintln!("missing export: {}", field);
-					let (mut stub_instance, export) = generate_func_export(wasmtime_missing_externals::MISSING_EXTERNAL_FUNCTION).unwrap();
+					let compiler = new_compiler(CompilationStrategy::Cranelift).expect("could not make new compiler");
+					let (mut stub_instance, export) = generate_func_export(wasmtime_missing_externals::MISSING_EXTERNAL_FUNCTION, compiler).unwrap();
 					self.stub_instance.push(stub_instance);
 					Some(export)
 				} else {
