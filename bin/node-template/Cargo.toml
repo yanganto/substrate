@@ -36,6 +36,10 @@ sc-client = { version = "2.0.0", path = "../../client/" }
 node-template-runtime = { version = "2.0.0", path = "runtime" }
 sp-runtime = { version = "2.0.0", path = "../../primitives/runtime" }
 sc-basic-authority = { path  = "../../client/basic-authorship" }
+jsonrpc-core = "14.0.3"
+jsonrpc-core-client = "14.0.3"
+jsonrpc-derive = "14.0.3"
+sc-rpc = { version = "2.0.0", path = "../../client/rpc" }
 
 [build-dependencies]
 vergen = "3.0.4"
