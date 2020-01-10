@@ -25,7 +25,8 @@ decl_storage! {
 		// Just a dummy storage item.
 		// Here we are declaring a StorageValue, `Something` as a Option<u32>
 		// `get(fn something)` is the default getter which returns either the stored `u32` or `None` if nothing stored
-		Something get(fn something): Option<u32>;
+		Thing1 get(fn thing1): Option<u32>;
+		Thing2 get(fn thing2): Option<u32>;
 	}
 }
 
@@ -37,19 +38,21 @@ decl_module! {
 		// this is needed only if you are using events in your module
 		fn deposit_event() = default;
 
-		// Just a dummy entry point.
-		// function that can be called by the external world as an extrinsics call
-		// takes a parameter of the type `AccountId`, stores it and emits an event
-		pub fn do_something(origin, something: u32) -> dispatch::DispatchResult {
-			// TODO: You only need this if you want to check it was signed.
-			let who = ensure_signed(origin)?;
+		pub fn set_thing_1(origin, val: u32) -> dispatch::DispatchResult {
+			let _ = ensure_signed(origin)?;
 
-			// TODO: Code to execute when something calls this.
-			// For example: the following line stores the passed in u32 in the storage
-			Something::put(something);
+			Thing1::put(something);
 
-			// here we are raising the Something event
-			Self::deposit_event(RawEvent::SomethingStored(something, who));
+			Self::deposit_event(RawEvent::ValueSet(1, value));
+			Ok(())
+		}
+
+		pub fn set_thing_2(origin, val: u32) -> dispatch::DispatchResult {
+			let _ = ensure_signed(origin)?;
+
+			Thing2::put(something);
+
+			Self::deposit_event(RawEvent::ValueSet(2, value));
 			Ok(())
 		}
 	}
@@ -57,10 +60,7 @@ decl_module! {
 
 decl_event!(
 	pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
-		// Just a dummy event.
-		// Event `Something` is declared with a parameter of the type `u32` and `AccountId`
-		// To emit this event, we call the deposit funtion, from our runtime funtions
-		SomethingStored(u32, AccountId),
+		ValueSet(u32, u32),
 	}
 );
 
