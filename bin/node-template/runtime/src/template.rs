@@ -13,10 +13,8 @@ use system::ensure_signed;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait {
-	// TODO: Add other types and constants required configure this module.
-
 	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+	type Event: From<Event> + Into<<Self as system::Trait>::Event>;
 }
 
 // This module's storage items.
@@ -41,25 +39,25 @@ decl_module! {
 		pub fn set_thing_1(origin, val: u32) -> dispatch::DispatchResult {
 			let _ = ensure_signed(origin)?;
 
-			Thing1::put(something);
+			Thing1::put(val);
 
-			Self::deposit_event(RawEvent::ValueSet(1, value));
+			Self::deposit_event(Event::ValueSet(1, val));
 			Ok(())
 		}
 
 		pub fn set_thing_2(origin, val: u32) -> dispatch::DispatchResult {
 			let _ = ensure_signed(origin)?;
 
-			Thing2::put(something);
+			Thing2::put(val);
 
-			Self::deposit_event(RawEvent::ValueSet(2, value));
+			Self::deposit_event(Event::ValueSet(2, val));
 			Ok(())
 		}
 	}
 }
 
 decl_event!(
-	pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
+	pub enum Event {
 		ValueSet(u32, u32),
 	}
 );
