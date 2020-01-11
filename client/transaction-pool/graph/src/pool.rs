@@ -57,6 +57,8 @@ pub type ValidatedTransactionFor<A> = ValidatedTransaction<
 	ExtrinsicFor<A>,
 	<A as ChainApi>::Error,
 >;
+pub type BlockFor<A> = <A as ChainApi>::Block;
+
 
 /// Concrete extrinsic validation and query logic.
 pub trait ChainApi: Send + Sync {
@@ -171,27 +173,38 @@ impl<B: ChainApi> Pool<B> {
 		)
 	}
 
-	/// Revalidate all ready transactions.
+	/// Revalidate all or some ready transactions.
 	///
-	/// Returns future that performs validation of all ready transactions and
+	/// Returns future that performs validation of all or some ready transactions and
 	/// then resubmits all transactions back to the pool.
 	pub fn revalidate_ready(
 		&self,
 		at: &BlockId<B::Block>,
 		max: Option<usize>,
 	) -> impl Future<Output=Result<(), B::Error>> {
-		use std::time::Instant;
 		log::debug!(target: "txpool",
 			"Fetching ready transactions (up to: {})",
 			max.map(|x| format!("{}", x)).unwrap_or_else(|| "all".into())
 		);
-		let validated_pool = self.validated_pool.clone();
 		let ready = self.validated_pool.ready()
 			.map(|tx| tx.data.clone())
 			.take(max.unwrap_or_else(usize::max_value));
 
+		self.revalidate(at, ready)
+	}
+
+	/// Revalidate some transactions.
+	///
+	/// Return previously taken transaction for revalidation.
+	pub fn revalidate(
+		&self,
+		at: &BlockId<B::Block>,
+		transactions: impl IntoIterator<Item=ExtrinsicFor<B>>,
+	) -> impl Future<Output=Result<(), B::Error>> {
+		use std::time::Instant;
 		let now = Instant::now();
-		self.verify(at, ready, false)
+		let validated_pool = self.validated_pool.clone();
+		self.verify(at, transactions, false)
 			.map(move |revalidated_transactions| {
 				log::debug!(target: "txpool",
 					"Re-verified transactions, took {} ms. Resubmitting.",
@@ -376,7 +389,7 @@ impl<B: ChainApi> Pool<B> {
 	}
 
 	/// Resolves block number by id.
-	fn resolve_block_number(&self, at: &BlockId<B::Block>) -> Result<NumberFor<B>, B::Error> {
+	pub fn resolve_block_number(&self, at: &BlockId<B::Block>) -> Result<NumberFor<B>, B::Error> {
 		self.validated_pool.api().block_id_to_number(at)
 			.and_then(|number| number.ok_or_else(||
 				error::Error::InvalidBlockId(format!("{:?}", at)).into()))

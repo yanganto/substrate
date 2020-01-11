@@ -18,6 +18,7 @@
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
+#![recursion_limit="256"]
 
 mod api;
 mod maintainer;
@@ -25,6 +26,8 @@ mod maintainer;
 pub mod error;
 #[cfg(test)]
 mod tests;
+
+mod background;
 
 pub use sc_transaction_graph as txpool;
 pub use crate::api::{FullChainApi, LightChainApi};

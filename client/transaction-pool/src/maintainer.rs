@@ -22,6 +22,7 @@ use std::{
 use futures::{
 	Future, FutureExt,
 	future::{Either, join, ready},
+	channel::mpsc,
 };
 use log::{warn, debug, trace};
 use parking_lot::Mutex;
@@ -39,20 +40,36 @@ use sp_transaction_pool::{TransactionPoolMaintainer, runtime_api::TaggedTransact
 use sp_api::ProvideRuntimeApi;
 
 use sc_transaction_graph::{self, ChainApi};
+use crate::background::{BackgroundTasks, MaintainerUpdate};
 
 /// Basic transaction pool maintainer for full clients.
-pub struct FullBasicPoolMaintainer<Client, PoolApi: ChainApi> {
+pub struct FullBasicPoolMaintainer<Client, PoolApi: ChainApi + 'static> {
 	pool: Arc<sc_transaction_graph::Pool<PoolApi>>,
 	client: Arc<Client>,
+	background_worker: futures::executor::ThreadPool,
+	background_queue: mpsc::UnboundedSender<MaintainerUpdate<PoolApi>>
 }
 
-impl<Client, PoolApi: ChainApi> FullBasicPoolMaintainer<Client, PoolApi> {
+impl<Client, PoolApi: ChainApi + 'static> FullBasicPoolMaintainer<Client, PoolApi> {
 	/// Create new basic full pool maintainer.
 	pub fn new(
 		pool: Arc<sc_transaction_graph::Pool<PoolApi>>,
 		client: Arc<Client>,
-	) -> Self {
-		FullBasicPoolMaintainer { pool, client }
+	) -> FullBasicPoolMaintainer<Client, PoolApi> {
+
+		let (sender, receiver) = mpsc::unbounded();
+
+		let background_worker = futures::executor::ThreadPool::builder()
+			.name_prefix("txpool-worker")
+			.pool_size(1)
+			.create()
+			.expect("Creating worker thread task failed");
+
+		let mut background_tasks = BackgroundTasks::<PoolApi>::new(pool.clone());
+
+		background_worker.spawn_ok(async move { background_tasks.main(receiver).await });
+
+		FullBasicPoolMaintainer { pool, client, background_worker, background_queue: sender }
 	}
 }
 
@@ -125,18 +142,11 @@ where
 			},
 		};
 
-		let revalidate_future = self.pool
-			.revalidate_ready(&id, Some(16))
-			.then(move |result| ready(match result {
-				Ok(_) => debug!(target: "txpool",
-					"[{:?}] Revalidation done: {}", id, took()
-				),
-				Err(e) => warn!(target: "txpool",
-					"[{:?}] Encountered errors while revalidating transactions: {:?}", id, e
-				),
-			}));
+		if let Err(e) = self.background_queue.unbounded_send(MaintainerUpdate::Block(id.clone())) {
+			warn!(target: "txpool", "Failed to update background queue ({:?})", e);
+		}
 
-		Box::new(prune_future.then(|_| revalidate_future))
+		Box::new(prune_future)
 	}
 }
 
