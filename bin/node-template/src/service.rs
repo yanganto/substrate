@@ -13,8 +13,6 @@ use sp_consensus_aura::sr25519::{AuthorityPair as AuraPair};
 use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
 use sc_basic_authority;
 
-use crate::silly_rpc::{ SillyRpc, Silly };
-
 // Our native executor instance.
 native_executor_instance!(
 	pub Executor,
@@ -80,7 +78,8 @@ macro_rules! new_full_start {
 			.with_rpc_extensions(|client, pool, _backend, fetcher, _remote_blockchain| -> Result<RpcExtension, _> {
 				let mut io = jsonrpc_core::IoHandler::default();
 
-				io.extend_with(SillyRpc::to_delegate(Silly{}));
+				// QUESTION: Why do I have to use the fully qualified path here even if it's already `use`d above?
+				io.extend_with(crate::silly_rpc::SillyRpc::to_delegate(crate::silly_rpc::Silly{}));
 				Ok(io)
 			})?;
 

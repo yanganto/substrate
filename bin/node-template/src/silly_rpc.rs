@@ -15,12 +15,10 @@ pub struct Silly;
 
 impl SillyRpc for Silly {
     fn silly_5() -> Result<u64> {
-        // Not even gonna try to say "hello world". Just trying an integer
-        5
+        Ok(5)
     }
 
     fn silly_7() -> Result<u64> {
-        // Not even gonna try to say "hello world". Just trying an integer
-        7
+        Ok(7)
     }
 }
