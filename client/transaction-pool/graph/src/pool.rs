@@ -223,6 +223,22 @@ impl<B: ChainApi> Pool<B> {
 			})
 	}
 
+	/// Revalidate by hash.
+	///
+	/// For those extrinsics, which are in validated or future pool,
+	/// revalidation is performed.
+	pub fn revalidate_hashes(
+		&self,
+		at: &BlockId<B::Block>,
+		transactions: &[ExHash<B>],
+	) -> impl Future<Output=Result<(), B::Error>> {
+		let to_revalidate = self.validated_pool
+			.by_hashes(transactions)
+			.into_iter()
+			.filter_map(|maybe_tx| maybe_tx.map(|tx| tx.data.clone()));
+		self.revalidate(at, to_revalidate)
+	}
+
 	/// Prunes known ready transactions.
 	///
 	/// Used to clear the pool from transactions that were part of recently imported block.

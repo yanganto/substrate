@@ -19,7 +19,7 @@
 use std::{
 	sync::Arc,
 	time::Duration,
-	collections::{HashMap, BTreeMap},
+	collections::{HashMap, BTreeMap, HashSet},
 };
 
 use futures::{prelude::*, channel::mpsc};
@@ -31,7 +31,7 @@ use sp_runtime::{
 };
 
 struct RevalidationQueue<A: ChainApi> {
-	block_ordered: BTreeMap<NumberFor<A>, HashMap<ExHash<A>, TransactionFor<A>>>,
+	block_ordered: BTreeMap<NumberFor<A>, HashSet<ExHash<A>>>,
 	members: HashMap<ExHash<A>, NumberFor<A>>,
 }
 
@@ -141,10 +141,10 @@ impl<A: ChainApi> RevalidationQueue<A> {
 			if self.members.contains_key(&ext.hash) { continue; }
 
 			self.block_ordered.entry(block_number)
-				.and_modify(|value| { value.insert(ext.hash.clone(), ext.clone()); })
+				.and_modify(|value| { value.insert(ext.hash.clone()); })
 				.or_insert_with(|| {
-					let mut bt = HashMap::new();
-					bt.insert(ext.hash.clone(), ext.clone());
+					let mut bt = HashSet::new();
+					bt.insert(ext.hash.clone());
 					bt
 				});
 			self.members.insert(ext.hash.clone(), block_number);
@@ -167,15 +167,15 @@ impl<A: ChainApi> RevalidationQueue<A> {
 			if queued_exts.len() >= count { break; }
 
 			loop {
-				let next_key = match ext_map.keys().nth(0) {
+				let next_key = match ext_map.iter().nth(0) {
 					Some(k) => k.clone(),
 					None => { break; }
 				};
 
-				let ext = ext_map.remove(&next_key).expect("Just checked the key");
+				ext_map.remove(&next_key);
 				self.members.remove(&next_key);
 
-				queued_exts.push(ext);
+				queued_exts.push(next_key);
 
 				if ext_map.len() == 0 { empty.push(*block_number); }
 
@@ -186,9 +186,9 @@ impl<A: ChainApi> RevalidationQueue<A> {
 		// retain only non-empty
 		for empty_block_number in empty.into_iter() { self.block_ordered.remove(&empty_block_number); }
 
-		pool.revalidate(
+		pool.revalidate_hashes(
 			&BlockId::number(block_number),
-			queued_exts.into_iter().map(|x| x.data.clone())
+			&queued_exts,
 		)
 	}
 }

@@ -196,6 +196,11 @@ impl<B: ChainApi> ValidatedPool<B> {
 		}
 	}
 
+	/// Return transaction status by hash.
+	pub fn by_hashes(&self, hashes: &[ExHash<B>]) -> Vec<Option<TransactionFor<B>>> {
+		self.pool.read().by_hash(hashes)
+	}
+
 	/// Resubmits revalidated transactions back to the pool.
 	///
 	/// Removes and then submits passed transactions and all dependent transactions.
