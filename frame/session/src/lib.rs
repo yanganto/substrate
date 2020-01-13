@@ -182,7 +182,7 @@ pub trait OnNewSession<ValidatorId> {
 	/// issue a validator-set change so misbehavior can be provably associated with the new
 	/// economic conditions as opposed to the old.
 	/// The returned validator set, if any, will not be applied until `new_index`.
-	/// `new_index` must be strictly superior from previous call.
+	/// `new_index` must always be greater than in the previous call.
 	fn on_new_session(new_index: SessionIndex) -> Option<Vec<ValidatorId>>;
 }
 
