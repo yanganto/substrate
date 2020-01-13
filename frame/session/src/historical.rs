@@ -105,8 +105,9 @@ pub struct NoteHistoricalRoot<T, I>(sp_std::marker::PhantomData<(T, I)>);
 impl<T: Trait, I> crate::OnNewSession<T::ValidatorId> for NoteHistoricalRoot<T, I>
 	where I: OnNewSession<T::ValidatorId, T::FullIdentification>
 {
-	fn on_session_ending(ending: SessionIndex, applied_at: SessionIndex) -> Option<Vec<T::ValidatorId>> {
+	fn on_new_session(new_index: SessionIndex) -> Option<Vec<T::ValidatorId>> {
 		// TODO TODO: simply generate the trie root for this new validators set and identification
+		// TODO TODO: and copy the previous last trie_root for session in previous_new_index..to new_index -1
 	}
 }
 
