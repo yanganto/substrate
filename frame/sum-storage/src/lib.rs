@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 /// A runtime module template with necessary imports
 
 /// Feel free to remove or edit this file as needed.
@@ -9,7 +11,7 @@
 /// https://github.com/paritytech/substrate/blob/master/frame/example/src/lib.rs
 
 use frame_support::{decl_module, decl_storage, decl_event, dispatch};
-use system::ensure_signed;
+use frame_system::{self as system, ensure_signed};
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait {
@@ -18,6 +20,8 @@ pub trait Trait: system::Trait {
 }
 
 // This module's storage items.
+// QUESTION: When I import as `frame_system` instead of `system` I get compile errors on this macro. Possibly related to https://github.com/paritytech/substrate/issues/3295 But why doesn't sudo have that problem? Ohh, sudo does
+// use frame_system::{self as system, ... };
 decl_storage! {
 	trait Store for Module<T: Trait> as TemplateModule {
 		// Just a dummy storage item.
