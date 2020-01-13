@@ -51,7 +51,7 @@ use std::{
 };
 use sysinfo::{get_current_pid, ProcessExt, System, SystemExt};
 use sc_telemetry::{telemetry, SUBSTRATE_INFO};
-use sp_transaction_pool::{TransactionPool, TransactionPoolMaintainer};
+use sp_transaction_pool::TransactionPool;
 use sp_blockchain;
 use grafana_data_source::{self, record_metrics};
 
@@ -742,9 +742,7 @@ ServiceBuilder<
 	TSc: Clone,
 	TImpQu: 'static + ImportQueue<TBl>,
 	TNetP: NetworkSpecialization<TBl>,
-	TExPool: 'static
-		+ TransactionPool<Block=TBl, Hash = <TBl as BlockT>::Hash>
-		+ TransactionPoolMaintainer<Block=TBl, Hash = <TBl as BlockT>::Hash>,
+	TExPool: TransactionPool<Block=TBl, Hash = <TBl as BlockT>::Hash> + 'static,
 	TRpc: sc_rpc::RpcExtension<sc_rpc::Metadata> + Clone,
 {
 
@@ -884,11 +882,10 @@ ServiceBuilder<
 					let txpool = txpool.upgrade();
 
 					if let Some(txpool) = txpool.as_ref() {
-						let future = txpool.maintain(
+						txpool.maintain(
 							&BlockId::hash(notification.hash),
 							&notification.retracted,
-						).map(|_| Ok(())).compat();
-						let _ = to_spawn_tx_.unbounded_send(Box::new(future));
+						);
 					}
 
 					let offchain = offchain.as_ref().and_then(|o| o.upgrade());
