@@ -78,8 +78,14 @@ macro_rules! new_full_start {
 			.with_rpc_extensions(|client, pool, _backend, fetcher, _remote_blockchain| -> Result<RpcExtension, _> {
 				let mut io = jsonrpc_core::IoHandler::default();
 
+				// Add the first rpc extension
 				// QUESTION: Why do I have to use the fully qualified path here even if it's already `use`d above?
 				io.extend_with(crate::silly_rpc::SillyRpc::to_delegate(crate::silly_rpc::Silly{}));
+
+				// Add another rpc extension
+				// QUESTION: I wonder whether I can have another `with_rpc_extension` block instead of doing both of them here.
+				io.extend_with(pallet_sum_storage_rpc::SumStorageApi::to_delegate(pallet_sum_storage_rpc::SumStorage::new(client.clone())));
+
 				Ok(io)
 			})?;
 

@@ -40,6 +40,7 @@ jsonrpc-core = "14.0.3"
 jsonrpc-core-client = "14.0.3"
 jsonrpc-derive = "14.0.3"
 sc-rpc = { version = "2.0.0", path = "../../client/rpc" }
+pallet-sum-storage-rpc = { path = "../../frame/sum-storage/rpc" }
 
 [build-dependencies]
 vergen = "3.0.4"
