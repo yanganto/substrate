@@ -111,8 +111,8 @@ mod wasmtime_missing_externals {
 			_args: &mut dyn Iterator<Item = Value>,
 		) -> Result<Option<Value>> {
 			//panic!("should not be called");
-			Ok(None)
-			//Err("boo".to_string())
+			//Ok(None)
+			Err("boo".to_string())
 		}
 	}
 
@@ -149,9 +149,10 @@ impl<'a> Resolver for RuntimeInterfaceResolver<'a> {
 				None => if self.enable_stub {
 					self.missing_functions.push(field.to_string());
 					eprintln!("missing export: {}", field);
-					let compiler = new_compiler(CompilationStrategy::Cranelift).expect("could not make new compiler");
-					let (mut stub_instance, export) = generate_func_export(wasmtime_missing_externals::MISSING_EXTERNAL_FUNCTION, compiler).unwrap();
-					self.stub_instance.push(stub_instance);
+					//let compiler = new_compiler(CompilationStrategy::Cranelift).expect("could not make new compiler");
+					//let (mut stub_instance, export) = generate_func_export(wasmtime_missing_externals::MISSING_EXTERNAL_FUNCTION, compiler).unwrap();
+					//self.stub_instance.push(stub_instance);
+					let export = self.env_instance.lookup("missing_external").unwrap();
 					Some(export)
 				} else {
 					None
@@ -168,14 +169,15 @@ impl<'a> Resolver for RuntimeInterfaceResolver<'a> {
 pub fn create_instance(
 	code: &[u8],
 	heap_pages: u64,
-	host_functions: Vec<&'static dyn Function>,
+	mut host_functions: Vec<&'static dyn Function>,
 	enable_stub: bool,
 ) -> std::result::Result<WasmtimeRuntime, WasmError> {
 	let global_exports = Rc::new(RefCell::new(HashMap::new()));
 
 	let compiler = new_compiler(CompilationStrategy::Cranelift)?;
+	host_functions.push(wasmtime_missing_externals::MISSING_EXTERNAL_FUNCTION as &'static Function);
 	let mut env_instance =
-		instantiate_env_module(Rc::clone(&global_exports), compiler, &host_functions)?;
+		instantiate_env_module(Rc::clone(&global_exports), compiler, host_functions.as_slice())?;
 
 	let mut compiler = new_compiler(CompilationStrategy::Cranelift)?;
 	let mut resolver = RuntimeInterfaceResolver::new(&mut env_instance, enable_stub);
@@ -346,7 +348,6 @@ fn instantiate_env_module(
 	let signatures = PrimaryMap::new();
 	let env_state = EnvState::new(code_memory, compiler, host_functions);
 
-	println!("boo6 {:?}", env_state.executor_state.is_some());
 	let result = InstanceHandle::new(
 		Rc::new(module),
 		global_exports,

@@ -88,6 +88,10 @@ impl EnvState {
 	}
 }
 
+extern "C" fn missing_external() {
+	println!("boo8");
+}
+
 /// This is called by the dynamically generated trampoline taking the function index and reference
 /// to the call arguments on the stack as arguments. Returns zero on success and a non-zero value
 /// on failure.
@@ -467,6 +471,7 @@ pub fn create_handle_with_function(
 	module
 		.exports
 		.insert("trampoline".to_string(), wasmtime_environ::Export::Function(func_id));
+	/*
 	let trampoline = make_trampoline(
 		isa.as_ref(),
 		&mut code_memory,
@@ -475,6 +480,8 @@ pub fn create_handle_with_function(
 		&sig,
 	)?;
 	code_memory.publish();
+	*/
+	let trampoline = missing_external as *const VMFunctionBody;
 
 	finished_functions.push(trampoline);
 
@@ -493,17 +500,6 @@ pub fn generate_func_export(
 	compiler: Compiler,
 ) -> Result<(wasmtime_runtime::InstanceHandle, wasmtime_runtime::Export), WasmError> {
 	let mut instance = create_handle_with_function(func, compiler)?;
-
-	unsafe {
-		println!("boo7 {:?}", instance.lookup_immutable("memory").is_some());
-	}
-	let heap_pages = 100;
-	grow_memory(&mut instance, heap_pages).expect("could not expand memory");
-	let heap_base = get_heap_base(&instance).expect("could not get heap base");
-	if let Some(state) = instance.host_state().downcast_mut::<EnvState>() {
-		state.executor_state = Some(FunctionExecutorState::new(heap_base));
-		state.take_trap();
-	}
 
 	let export = instance.lookup("trampoline").expect("trampoline export");
 	Ok((instance, export))
