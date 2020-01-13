@@ -41,25 +41,17 @@ type ValidatorCount = u32;
 pub trait Trait: super::Trait {
 	/// Full identification of the validator.
 	type FullIdentification: Parameter;
-
-	/// A conversion from validator ID to full identification.
-	///
-	/// This should contain any references to economic actors associated with the
-	/// validator, since they may be outdated by the time this is queried from a
-	/// historical trie.
-	///
-	/// This mapping is expected to remain stable in between calls to
-	/// `Self::OnSessionEnding::on_session_ending` which return new validators.
-	type FullIdentificationOf: Convert<Self::ValidatorId, Option<Self::FullIdentification>>;
 }
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Session {
 		/// Mapping from historical session indices to session-data root hash and validator count.
 		HistoricalSessions get(fn historical_root): map SessionIndex => Option<(T::Hash, ValidatorCount)>;
-		/// Queued full identifications for queued sessions whose validators have become obsolete.
-		CachedObsolete get(fn cached_obsolete): map SessionIndex
-			=> Option<Vec<(T::ValidatorId, T::FullIdentification)>>;
+		// /// Queued full identifications for queued sessions whose validators have become obsolete.
+		// CachedObsolete get(fn cached_obsolete): map SessionIndex
+		// 	=> Option<Vec<(T::ValidatorId, T::FullIdentification)>>;
+		// TODO TODO: clean this, no longer need to store some fullidentification before the
+		// session get started
 		/// The range of historical sessions we store. [first, last)
 		StoredRange: Option<(SessionIndex, SessionIndex)>;
 	}
@@ -97,52 +89,24 @@ impl<T: Trait> Module<T> {
 	}
 }
 
-/// Specialization of the crate-level `OnSessionEnding` which returns the old
-/// set of full identification when changing the validator set.
-pub trait OnSessionEnding<ValidatorId, FullIdentification>: crate::OnSessionEnding<ValidatorId> {
-	/// If there was a validator set change, its returns the set of new validators along with the
-	/// old validators and their full identifications.
-	fn on_session_ending(ending: SessionIndex, will_apply_at: SessionIndex)
-		-> Option<(Vec<ValidatorId>, Vec<(ValidatorId, FullIdentification)>)>;
+/// Specialization of the crate-level `OnNewSession` which returns the set of full identification
+/// when changing the validator set.
+pub trait OnNewSession<ValidatorId, FullIdentification>: crate::OnNewSession<ValidatorId> {
+	/// If there was a validator set change, its returns the set of new validators along with their
+	/// full identifications.
+	fn on_new_session(ending: SessionIndex, will_apply_at: SessionIndex)
+		-> Option<Vec<(ValidatorId, FullIdentification)>>;
 }
 
-/// An `OnSessionEnding` implementation that wraps an inner `I` and also
+/// An `OnNewSession` implementation that wraps an inner `I` and also
 /// sets the historical trie root of the ending session.
 pub struct NoteHistoricalRoot<T, I>(sp_std::marker::PhantomData<(T, I)>);
 
-impl<T: Trait, I> crate::OnSessionEnding<T::ValidatorId> for NoteHistoricalRoot<T, I>
-	where I: OnSessionEnding<T::ValidatorId, T::FullIdentification>
+impl<T: Trait, I> crate::OnNewSession<T::ValidatorId> for NoteHistoricalRoot<T, I>
+	where I: OnNewSession<T::ValidatorId, T::FullIdentification>
 {
 	fn on_session_ending(ending: SessionIndex, applied_at: SessionIndex) -> Option<Vec<T::ValidatorId>> {
-		StoredRange::mutate(|range| {
-			range.get_or_insert_with(|| (ending, ending)).1 = ending + 1;
-		});
-
-		// do all of this _before_ calling the other `on_session_ending` impl
-		// so that we have e.g. correct exposures from the _current_.
-
-		let count = <SessionModule<T>>::validators().len() as u32;
-		match ProvingTrie::<T>::generate_for(ending) {
-			Ok(trie) => <HistoricalSessions<T>>::insert(ending, &(trie.root, count)),
-			Err(reason) => {
-				print("Failed to generate historical ancestry-inclusion proof.");
-				print(reason);
-			}
-		};
-
-		// trie has been generated for this session, so it's no longer queued.
-		<CachedObsolete<T>>::remove(&ending);
-
-		let (new_validators, old_exposures) = <I as OnSessionEnding<_, _>>::on_session_ending(ending, applied_at)?;
-
-		// every session from `ending+1 .. applied_at` now has obsolete `FullIdentification`
-		// now that a new validator election has occurred.
-		// we cache these in the trie until those sessions themselves end.
-		for obsolete in (ending + 1) .. applied_at {
-			<CachedObsolete<T>>::insert(obsolete, &old_exposures);
-		}
-
-		Some(new_validators)
+		// TODO TODO: simply generate the trie root for this new validators set and identification
 	}
 }
 

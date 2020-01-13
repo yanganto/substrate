@@ -165,26 +165,33 @@ impl<
 /// An event handler for when the session is ending.
 /// TODO [slashing] consider renaming to OnSessionStarting
 pub trait OnSessionEnding<ValidatorId> {
-	/// Handle the fact that the session is ending, and optionally provide the new validator set.
+	/// Handle the fact that the session is ending.
+	///
+	/// `ending_index` is the index of the currently ending session.
+	fn on_session_ending(ending_index: SessionIndex);
+}
+
+/// An event handler for when a new session is planned.
+pub trait OnNewSession<ValidatorId> {
+	/// Handle the fact that a new session is planned, and optionally provide the new validator
+	/// set.
 	///
 	/// Even if the validator-set is the same as before, if any underlying economic
 	/// conditions have changed (i.e. stake-weights), the new validator set must be returned.
 	/// This is necessary for consensus engines making use of the session module to
 	/// issue a validator-set change so misbehavior can be provably associated with the new
 	/// economic conditions as opposed to the old.
-	///
-	/// `ending_index` is the index of the currently ending session.
-	/// The returned validator set, if any, will not be applied until `will_apply_at`.
-	/// `will_apply_at` is guaranteed to be at least `ending_index + 1`, since session indices don't
-	/// repeat, but it could be some time after in case we are staging authority set changes.
-	fn on_session_ending(
-		ending_index: SessionIndex,
-		will_apply_at: SessionIndex
-	) -> Option<Vec<ValidatorId>>;
+	/// The returned validator set, if any, will not be applied until `new_index`.
+	/// `new_index` must be strictly superior from previous call.
+	fn on_new_session(new_index: SessionIndex) -> Option<Vec<ValidatorId>>;
 }
 
 impl<A> OnSessionEnding<A> for () {
-	fn on_session_ending(_: SessionIndex, _: SessionIndex) -> Option<Vec<A>> { None }
+	fn on_session_ending(_: SessionIndex) {}
+}
+
+impl<A> OnNewSession<A> for () {
+	fn on_session_ending(_: SessionIndex) -> Option<Vec<ValidatorId>> { None }
 }
 
 /// Handler for session lifecycle events.
@@ -546,6 +553,8 @@ impl<T: Trait> Module<T> {
 		let applied_at = session_index + 2;
 
 		// Get next validator set.
+		// TODO TODO: call new_session(session_index + 2);
+		// TODO TODO: call on_session_ending(session_index);
 		let maybe_next_validators = T::OnSessionEnding::on_session_ending(session_index, applied_at);
 		let (next_validators, next_identities_changed)
 			= if let Some(validators) = maybe_next_validators
