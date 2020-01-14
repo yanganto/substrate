@@ -350,9 +350,9 @@ impl_runtime_apis! {
 	}
 
 	// TOOD: first see the error message.. then uncomment this.
-	impl sum_storage_rpc_runtime_api::SumStorageApi<Block> for Runtime {
-		fn get_sum() -> u32 { 77 /* TODO: call into a module? */ }
-	}
+	// impl sum_storage_rpc_runtime_api::SumStorageApi<Block> for Runtime {
+	// 	fn get_sum() -> u32 { 77 /* TODO: call into a module? */ }
+	// }
 
 	impl sp_session::SessionKeys<Block> for Runtime {
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
