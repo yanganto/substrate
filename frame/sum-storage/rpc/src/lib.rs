@@ -25,7 +25,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, ProvideRuntimeApi, UniqueSaturatedInto},
 };
 use sp_core::Bytes;
-//use pallet_transaction_payment_rpc_runtime_api::CappedDispatchInfo;
+use sum_storage_rpc_runtime_api::SumStorageApi as SumStorageRuntimeApi;
 //pub use pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi as TransactionPaymentRuntimeApi;
 // pub use self::gen_client::Client as TransactionPaymentClient;
 
@@ -39,16 +39,15 @@ pub trait SumStorageApi<BlockHash> {
 }
 
 /// A struct that implements the `SumStorageApi`.
-pub struct SumStorage<C> {
+pub struct SumStorage<C, M> {
 	client: Arc<C>,
-	// Maybe add a phantom marker for block here?
-	// Or maybe just delete the block and at stuff entirely?
+	_marker: std::marker::PhantomData<M>,
 }
 
-impl<C> SumStorage<C> {
+impl<C, M> SumStorage<C, M> {
 	/// Create new `SumStorage` instance with the given reference to the client.
 	pub fn new(client: Arc<C>) -> Self {
-		Self { client }
+		Self { client, _marker: Default::default() }
 	}
 }
 
@@ -70,31 +69,32 @@ impl<C> SumStorage<C> {
 // }
 
 impl<C, Block> SumStorageApi<<Block as BlockT>::Hash>
-	for SumStorage<C>
+	for SumStorage<C, Block> // TODO: if you have more generics, no need to add <M, N, P, ..>, just do SumStorage<C, (tuple_of_all_useless_phantom_generics)>
 where
 	Block: BlockT,
 	C: Send + Sync + 'static,
 	C: ProvideRuntimeApi,
 	C: HeaderBackend<Block>,
-	// C::Api: TransactionPaymentRuntimeApi<Block, Balance, Extrinsic>,
+	// NOTE: this is always generic over block, even if you don't define it. Macro crap.
+	// if you add more generics, then it becomes <Block, Foo, Bar, Baz>
+	C::Api: SumStorageRuntimeApi<Block>,
 {
 	fn get_sum(
 		&self,
 		at: Option<<Block as BlockT>::Hash>
 	) -> Result<u32> {
-		// let api = self.client.runtime_api();
-		// let at = BlockId::hash(at.unwrap_or_else(||
-		// 	// If the block hash is not supplied assume the best block.
-		// 	self.client.info().best_hash
-		// ));
-		//
-		// let encoded_len = encoded_xt.len() as u32;
-		//
-		// let uxt: Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError {
-		// 	code: ErrorCode::ServerError(Error::DecodeError.into()),
-		// 	message: "Unable to query dispatch info.".into(),
-		// 	data: Some(format!("{:?}", e).into()),
-		// })?;
+		// TODO: use the api call... btw, do you see that `query_info` has two args but we
+		// have given it also a BlockNumber? related to the same hardcoded `Block` generic. All
+		// runtime calls are querying the runtime code and storage at a particular block number. I
+		// am not sure wtf happens if your node has pruned some old state and you query it.
+		let api = self.client.runtime_api();
+		let at = BlockId::hash(at.unwrap_or_else(||
+			// If the block hash is not supplied assume the best block.
+			self.client.info().best_hash
+		));
+		let _ = api.get_sum(&at);
+
+		// Example for transaction payment.
 		// api.query_info(&at, uxt, encoded_len).map_err(|e| RpcError {
 		// 	code: ErrorCode::ServerError(Error::RuntimeError.into()),
 		// 	message: "Unable to query dispatch info.".into(),

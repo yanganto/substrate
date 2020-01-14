@@ -32,7 +32,9 @@ sp-session = { version = "2.0.0", default-features = false, path = "../../../pri
 sp-std = { version = "2.0.0", default-features = false, path = "../../../primitives/std" }
 sp-transaction-pool = { version = "2.0.0", default-features = false, path = "../../../primitives/transaction-pool" }
 sp-version = { version = "2.0.0", default-features = false, path = "../../../primitives/version" }
+# TODO: don't use `package = xxx` renmanes anymore!
 sum-storage = { version = "2.0.0", default-features = false, package = "pallet-sum-storage", path = "../../../frame/sum-storage" }
+sum-storage-rpc-runtime-api = { version = "2.0.0", default-features = false, path = "../../../frame/sum-storage/rpc/runtime-api" }
 
 [build-dependencies]
 wasm-builder-runner = { version = "1.0.4", package = "substrate-wasm-builder-runner", path = "../../../utils/wasm-builder-runner" }
