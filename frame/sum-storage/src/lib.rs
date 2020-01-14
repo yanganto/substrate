@@ -62,7 +62,18 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
 	pub fn get_sum() -> u32 {
-		123123
+		//TODO Actually handle the `None` cases and return something
+		// appropriate when one of the storage values is `None`
+		let v1 = match Thing1::get() {
+			Some(v) => v,
+			None => 0,
+		};
+		let v2 = match Thing2::get() {
+			Some(v) => v,
+			None => 0,
+		};
+
+		v1 + v2
 	}
 }
 

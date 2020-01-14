@@ -23,7 +23,8 @@ use sp_std::prelude::*;
 use codec::{Encode, Codec, Decode};
 use sp_runtime::traits::{UniqueSaturatedInto, SaturatedConversion};
 
-// TODO: implement this in sum-storage pallet, and glue it to here via adding the `impl` block in runtime amalgamator file.
+// Here we declare the runtime API. It is implemented it the `impl` block in
+// runtime amalgamator file (the `runtime/src/lib.rs`)
 sp_api::decl_runtime_apis! {
 	pub trait SumStorageApi {
 		fn get_sum() -> u32;
