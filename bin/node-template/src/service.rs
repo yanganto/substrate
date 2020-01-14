@@ -84,8 +84,10 @@ macro_rules! new_full_start {
 				io.extend_with(crate::silly_rpc::SillyRpc::to_delegate(crate::silly_rpc::Silly{}));
 
 				// Add another rpc extension
-				// QUESTION: I wonder whether I can have another `with_rpc_extension` block instead of doing both of them here.
-				io.extend_with(pallet_sum_storage_rpc::SumStorageApi::to_delegate(pallet_sum_storage_rpc::SumStorage::new(client.clone())));
+				// QUESTION: I wonder whether I could also use multiple
+				// .with_rpc_extensions calls...
+				// Also tried client.clone()
+				io.extend_with(pallet_sum_storage_rpc::SumStorageApi::to_delegate(pallet_sum_storage_rpc::SumStorage::new(client)));
 
 				Ok(io)
 			})?;

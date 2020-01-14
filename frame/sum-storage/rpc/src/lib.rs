@@ -92,8 +92,12 @@ where
 			// If the block hash is not supplied assume the best block.
 			self.client.info().best_hash
 		));
-		let _ = api.get_sum(&at);
 
+		// If I return a value straight from here, then this is just another
+		// Silly RPC like we used previously
+		// Ok(1337)
+
+		// Instead we'll call into a runtime API
 		// Example for transaction payment.
 		// api.query_info(&at, uxt, encoded_len).map_err(|e| RpcError {
 		// 	code: ErrorCode::ServerError(Error::RuntimeError.into()),
@@ -101,6 +105,12 @@ where
 		// 	data: Some(format!("{:?}", e).into()),
 		// }).map(CappedDispatchInfo::new)
 
-		Ok(1337)
+		// Our actual call to sum-storage-runtime-api
+		let runtime_api_result = api.get_sum(&at);
+		runtime_api_result.map_err(|e| RpcError {
+			code: ErrorCode::ServerError(9876), // No real reason for this value
+			message: "Something wrong".into(),
+			data: Some(format!("{:?}", e).into()),
+		})
 	}
 }
