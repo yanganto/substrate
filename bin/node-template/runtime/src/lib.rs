@@ -352,7 +352,12 @@ impl_runtime_apis! {
 	// TOOD: first see the error message.. then uncomment this.
 	impl sum_storage_rpc_runtime_api::SumStorageApi<Block> for Runtime {
 		fn get_sum() -> u32 {
-			77 /* TODO: call into a pallet? */
+			// If I return a ficed value here, it is not _so_ silly
+			// because we're already interfacing with the runtime.
+			// But we can still go further, and call into a pallet.
+			//77
+
+			SumStorage::get_sum()
 		}
 	}
 

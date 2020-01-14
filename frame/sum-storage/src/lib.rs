@@ -60,6 +60,12 @@ decl_module! {
 	}
 }
 
+impl<T: Trait> Module<T> {
+	pub fn get_sum() -> u32 {
+		123123
+	}
+}
+
 decl_event!(
 	pub enum Event {
 		ValueSet(u32, u32),
