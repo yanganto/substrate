@@ -43,13 +43,13 @@ async function main() {
   console.log(`The values from the Silly RPC are ${silly5}, and ${silly7}\n`);
 
   // Query raw storage values, the oldschool way
-  const v1 = parseInt( await api.query.sumStorage.thing1() );
-  const v2 = parseInt( await api.query.sumStorage.thing2() );
+  const v1 = ( await api.query.sumStorage.thing1() ).unwrap().toNumber();
+  const v2 = ( await api.query.sumStorage.thing2() ).unwrap().toNumber();
   console.log(`The individual storage values are ${v1}, and ${v2}.`);
   console.log(`The sum calculated in javascript is ${v1 + v2}\n`);
 
   // Query the custom RPC that uses the runtimeAPI
-  let directSum = parseInt( await api.rpc.sumStorage.getSum() );
+  let directSum = ( await api.rpc.sumStorage.getSum() ).toNumber();
   console.log(`The sum queried directly from the RPC is ${directSum}`);
 }
 
