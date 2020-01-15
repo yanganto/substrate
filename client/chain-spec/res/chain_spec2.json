@@ -18,6 +18,7 @@
 	"telemetryEndpoints": [
 		["wss://telemetry.polkadot.io/submit/", 0]
 	],
+	"telemetryAdvanceMode": false,
 	"protocolId": "fir",
 	"consensusEngine": null,
 	"myProperty": "Test Extension",

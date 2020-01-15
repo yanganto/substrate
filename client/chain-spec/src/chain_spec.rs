@@ -138,6 +138,7 @@ struct ClientSpec<E> {
 	pub id: String,
 	pub boot_nodes: Vec<String>,
 	pub telemetry_endpoints: Option<TelemetryEndpoints>,
+	pub telemetry_advance_mode: bool,
 	pub protocol_id: Option<String>,
 	pub properties: Option<Properties>,
 	#[serde(flatten)]
@@ -192,6 +193,10 @@ impl<G, E> ChainSpec<G, E> {
 		&self.client_spec.telemetry_endpoints
 	}
 
+	pub fn telemetry_advance_mode(&self) -> bool {
+		self.client_spec.telemetry_advance_mode
+	}
+
 	/// Network protocol id.
 	pub fn protocol_id(&self) -> Option<&str> {
 		self.client_spec.protocol_id.as_ref().map(String::as_str)
@@ -230,6 +235,7 @@ impl<G, E> ChainSpec<G, E> {
 			id: id.to_owned(),
 			boot_nodes,
 			telemetry_endpoints,
+			telemetry_advance_mode: false,
 			protocol_id: protocol_id.map(str::to_owned),
 			properties,
 			extensions,

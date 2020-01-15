@@ -941,11 +941,16 @@ where
 	}).into();
 
 	// Override telemetry
-	if cli.no_telemetry {
-		config.telemetry_endpoints = None;
-	} else if !cli.telemetry_endpoints.is_empty() {
+	if !cli.telemetry_endpoints.is_empty() {
 		config.telemetry_endpoints = Some(TelemetryEndpoints::new(cli.telemetry_endpoints));
 	}
+	match cli.telemetry_mode {
+		params::TelemetryMode::Disabled => config.telemetry_endpoints = None,
+		params::TelemetryMode::Advanced => config.telemetry_advance_mode = true,
+		params::TelemetryMode::Enabled => {
+			config.telemetry_advance_mode = false;
+		}
+	};
 
 	config.tracing_targets = cli.tracing_targets.into();
 	config.tracing_receiver = cli.tracing_receiver.into();

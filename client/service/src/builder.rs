@@ -929,6 +929,18 @@ ServiceBuilder<
 		let mut sys = System::new();
 		let self_pid = get_current_pid().ok();
 		let (state_tx, state_rx) = mpsc::unbounded::<(NetworkStatus<_>, NetworkState)>();
+		let cpu_info = if config.telemetry_advance_mode {
+			let cpuid = raw_cpuid::CpuId::new();
+			format!(
+				"{}",
+				cpuid.get_extended_function_info().as_ref().map_or_else(
+					|| "n/a",
+					|extfuninfo| extfuninfo.processor_brand_string().unwrap_or("unreadable"),
+				)
+			)
+		} else {
+			"n/a".to_string()
+		};
 		network_status_sinks.lock().push(std::time::Duration::from_millis(5000), state_tx);
 		let tel_task = state_rx.for_each(move |(net_status, _)| {
 			let info = client_.usage_info();
@@ -957,6 +969,7 @@ ServiceBuilder<
 				"best" => ?best_hash,
 				"txcount" => txpool_status.ready,
 				"cpu" => cpu_usage,
+				"cpu_info" => cpu_info.as_str(),
 				"memory" => memory,
 				"finalized_height" => finalized_number,
 				"finalized_hash" => ?info.chain.finalized_hash,

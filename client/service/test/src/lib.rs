@@ -197,6 +197,7 @@ fn node_config<G, E: Clone> (
 		rpc_cors: None,
 		grafana_port: None,
 		telemetry_endpoints: None,
+		telemetry_advance_mode: false,
 		telemetry_external_transport: None,
 		default_heap_pages: None,
 		offchain_worker: false,

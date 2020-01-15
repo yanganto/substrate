@@ -80,6 +80,18 @@ arg_enum! {
 	}
 }
 
+arg_enum! {
+    /// Whether Telemetry are enabled.
+    /// More info will provide in Advance mode
+    #[allow(missing_docs)]
+    #[derive(Debug, Clone)]
+    pub enum TelemetryMode {
+        Disabled,
+        Enabled,
+        Advanced,
+    }
+}
+
 /// Shared parameters used by all `CoreParams`.
 #[derive(Debug, StructOpt, Clone)]
 pub struct SharedParams {
@@ -485,11 +497,20 @@ pub struct RunCmd {
 	#[structopt(long = "name", value_name = "NAME")]
 	pub name: Option<String>,
 
-	/// Disable connecting to the Substrate telemetry server.
+	/// Telemetry connection mode
 	///
-	/// Telemetry is on by default on global chains.
-	#[structopt(long = "no-telemetry")]
-	pub no_telemetry: bool,
+	/// Disable connecting to the telemetry server.
+	/// Enable connecting to the telemetry server.
+	/// Advance connecting will provdie more node info to the telemetry server.
+	#[structopt(
+		long = "telemetry-mode",
+			value_name = "ENABLED",
+			possible_values = &TelemetryMode::variants(),
+			case_insensitive = true,
+			default_value = "Enabled"
+		)]
+	pub telemetry_mode: TelemetryMode,
+
 
 	/// The URL of the telemetry server to connect to.
 	///

@@ -17,6 +17,7 @@
       0
     ]
   ],
+  "telemetryAdvanceMode": false,
   "protocolId": "fir5",
   "properties": {
     "tokenDecimals": 15,

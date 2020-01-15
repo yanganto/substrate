@@ -77,6 +77,8 @@ pub struct Configuration<C, G, E = NoExtension> {
 	pub grafana_port: Option<SocketAddr>,
 	/// Telemetry service URL. `None` if disabled.
 	pub telemetry_endpoints: Option<TelemetryEndpoints>,
+	/// Telemetry advance mode. `true` if enabled.
+	pub telemetry_advance_mode: bool,
 	/// External WASM transport for the telemetry. If `Some`, when connection to a telemetry
 	/// endpoint, this transport will be tried in priority before all others.
 	pub telemetry_external_transport: Option<ExtTransport>,
@@ -179,6 +181,7 @@ impl<C, G, E> Configuration<C, G, E> where
 			rpc_cors: Some(vec![]),
 			grafana_port: None,
 			telemetry_endpoints: None,
+			telemetry_advance_mode: false,
 			telemetry_external_transport: None,
 			default_heap_pages: None,
 			offchain_worker: Default::default(),
