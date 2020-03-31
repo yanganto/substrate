@@ -312,6 +312,13 @@ fn get_app<'a, 'b>(usage: &'a str) -> App<'a, 'b> {
 					<key-type> 'Key type, examples: \"gran\", or \"imon\" '
 					[node-url] 'Node JSON-RPC endpoint, default \"http:://localhost:9933\"'
 				"),
+			SubCommand::with_name("insert-token")
+				.about("Insert a token to the keystore of a node")
+				.args_from_usage("
+					<token> 'The secret key URI. '
+					<token-type> 'Key type, examples: \"gran\", or \"imon\" '
+					[node-url] 'Node JSON-RPC endpoint, default \"http:://localhost:9933\"'
+				"),
 		])
 }
 
@@ -499,6 +506,22 @@ where
 				key_type.to_string(),
 				suri,
 				sp_core::Bytes(pair.public().as_ref().to_vec()),
+			);
+		}
+		("insert-token", Some(matches)) => {
+			let node_url = matches.value_of("node-url").unwrap_or("http://localhost:9933");
+			let token_type = matches.value_of("token-type").ok_or(Error::Static("Token type id is required"))?;
+			let token = matches.value_of("token").ok_or(Error::Static("Token is required"))?;
+
+			// Just checking
+			let _ = sp_core::crypto::KeyTypeId::try_from(token_type)
+				.map_err(|_| Error::Static("Cannot convert argument to tokentype: argument should be 4-character string"))?;
+
+			let rpc = rpc::RpcClient::new(node_url.to_string());
+
+			rpc.insert_token(
+				token_type.to_string(),
+				sp_core::Bytes(token.to_string().into_bytes()),
 			);
 		}
 		_ => print_usage(&matches),

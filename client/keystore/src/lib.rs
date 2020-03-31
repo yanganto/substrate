@@ -125,6 +125,19 @@ impl Store {
 		Ok(())
 	}
 
+	/// Insert a token as public key for interact with traditional network.
+	fn insert_token(&self, key_type: KeyTypeId, public: &[u8]) -> Result<()> {
+		if let Some(path) = self.path.as_ref() {
+			let mut path = path.clone();
+			let key = hex::encode(public);
+			let key_type = hex::encode(key_type.0);
+			path.push(key_type + key.as_str());
+			let mut file = File::create(path).map_err(Error::Io)?;
+			file.flush().map_err(Error::Io)?;
+		};
+		Ok(())
+	}
+
 	/// Insert a new key.
 	///
 	/// Places it into the file system store.

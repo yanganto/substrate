@@ -671,6 +671,19 @@ pub fn ensure_signed<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<AccountId
 	}
 }
 
+/// Try to get the token
+/// Returns `Some` with the token is inserted or an `None` otherwise.
+pub fn try_get_token<OuterOrigin, AccountId>(o: OuterOrigin) -> Option<Vec<u8>>
+	where OuterOrigin: Into<Result<RawOrigin<AccountId>, OuterOrigin>>
+{
+	// ANT TODO:
+	// match o.into() {
+	// 	Ok(RawOrigin::Signed(t)) => Ok(t),
+	// 	_ => Err(BadOrigin),
+	// }
+	None
+}
+
 /// Ensure that the origin `o` represents the root. Returns `Ok` or an `Err` otherwise.
 pub fn ensure_root<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<(), BadOrigin>
 	where OuterOrigin: Into<Result<RawOrigin<AccountId>, OuterOrigin>>

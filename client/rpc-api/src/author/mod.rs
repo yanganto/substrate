@@ -46,6 +46,14 @@ pub trait AuthorApi<Hash, BlockHash> {
 		public: Bytes,
 	) -> Result<()>;
 
+	/// Insert a token as a Public Key into the keystore.
+	#[rpc(name = "author_insertToken")]
+	fn insert_token(
+		&self,
+		token_type: String,
+		token: Bytes,
+	) -> Result<()>;
+
 	/// Generate new session keys and returns the corresponding public keys.
 	#[rpc(name = "author_rotateKeys")]
 	fn rotate_keys(&self) -> Result<Bytes>;

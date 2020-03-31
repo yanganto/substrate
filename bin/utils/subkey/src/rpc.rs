@@ -46,4 +46,21 @@ impl RpcClient {
 				})
 		);
 	}
+	pub fn insert_token(
+		&self,
+		token_type: String,
+		token: Bytes
+	) {
+		let url = self.url.clone();
+
+		rt::run(
+			http::connect(&url)
+				.and_then(|client: AuthorClient<Hash, Hash>| {
+					client.insert_token(token_type, token).map(|_| ())
+				})
+				.map_err(|e| {
+					println!("Error inserting toekn: {:?}", e);
+				})
+		);
+	}
 }
