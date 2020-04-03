@@ -16,7 +16,7 @@
 
 //! Shareable Substrate traits.
 
-use crate::{crypto::KeyTypeId, ed25519, sr25519};
+use crate::{crypto::KeyTypeId, ed25519, sr25519, token};
 
 use std::{
 	fmt::{Debug, Display}, panic::UnwindSafe, sync::Arc, borrow::Cow,
@@ -41,6 +41,12 @@ pub trait BareCryptoStore: Send + Sync {
 	/// Returns the sr25519 key pair for the given key type and public key combination.
 	fn sr25519_key_pair(&self, id: KeyTypeId, pub_key: &sr25519::Public) -> Option<sr25519::Pair>;
 
+	// fn tokens(&self, key_type: KeyTypeId) -> Vec<&token::Public>;
+	fn token_generate_new(
+		&mut self,
+		id: KeyTypeId,
+	) -> std::result::Result<token::Public, String>;
+
 	/// Returns all ed25519 public keys for the given key type.
 	fn ed25519_public_keys(&self, id: KeyTypeId) -> Vec<ed25519::Public>;
 	/// Generate a new ed25519 key pair for the given key type and an optional seed.
@@ -64,6 +70,8 @@ pub trait BareCryptoStore: Send + Sync {
 	///
 	/// `Err` if there's some sort of weird filesystem error, but should generally be `Ok`.
 	fn insert_unknown(&mut self, _key_type: KeyTypeId, _suri: &str, _public: &[u8]) -> Result<(), ()>;
+
+	fn insert_token(&mut self, _key_type: KeyTypeId, _public: &[u8]) -> Result<(), ()>;
 
 	/// Get the password for this store.
 	fn password(&self) -> Option<&str>;

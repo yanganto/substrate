@@ -41,7 +41,7 @@ use sp_core::{
 };
 
 use sp_core::{
-	crypto::KeyTypeId, ed25519, sr25519, H256, LogLevel,
+	crypto::KeyTypeId, ed25519, sr25519, H256, LogLevel, token,
 	offchain::{
 		Timestamp, HttpRequestId, HttpRequestStatus, HttpError, StorageKind, OpaqueNetworkState,
 	},
@@ -471,6 +471,35 @@ pub trait Crypto {
 	/// Returns `true` when the verification in successful.
 	fn sr25519_verify(sig: &sr25519::Signature, msg: &[u8], pubkey: &sr25519::Public) -> bool {
 		sr25519::Pair::verify(sig, msg, pubkey)
+	}
+
+	/// Get an Token form KeyTypeId
+	fn token_generate(&mut self, id: KeyTypeId) -> token::Public {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.write()
+			.token_generate_new(id)
+			.expect("`token_generate` failed")
+	}
+
+	/// Sign the given `msg` with the `token` key that corresponds to the given public key and
+	/// key type in the keystore.
+	///
+	/// Returns the signature.
+	fn token_sign(
+		&mut self,
+		id: KeyTypeId,
+		pub_key: &token::Public,
+		msg: &[u8],
+	) -> Option<token::Signature> {
+		None
+	}
+
+	/// Verify an `token` signature.
+	///
+	/// Returns `true` when the verification in successful.
+	fn token_verify(sig: &token::Signature, msg: &[u8], pubkey: &token::Public) -> bool {
+		false
 	}
 
 	/// Verify and recover a SECP256k1 ECDSA signature.

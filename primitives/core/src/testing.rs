@@ -17,7 +17,7 @@
 //! Types that should only be used for testing!
 
 #[cfg(feature = "std")]
-use crate::{ed25519, sr25519, crypto::{Public, Pair}};
+use crate::{ed25519, sr25519, token, crypto::{Public, Pair}};
 use crate::crypto::KeyTypeId;
 
 /// Key type for generic Ed25519 key.
@@ -79,6 +79,16 @@ impl crate::traits::BareCryptoStore for KeyStore {
 				inner.get(pub_key.as_slice())
 					.map(|s| sr25519::Pair::from_string(s, None).expect("`sr25519` seed slice is valid"))
 			)
+	}
+
+	fn token_generate_new(
+		&mut self,
+		id: KeyTypeId,
+	) -> Result<token::Public, String> {
+		Err("Not implemented".to_string())
+	}
+	fn insert_token(&mut self, _key_type: KeyTypeId, _public: &[u8]) -> Result<(), ()>{
+		todo!()
 	}
 
 	fn ed25519_public_keys(&self, id: KeyTypeId) -> Vec<ed25519::Public> {

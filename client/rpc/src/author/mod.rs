@@ -46,8 +46,6 @@ use sp_session::SessionKeys;
 pub use sc_rpc_api::author::*;
 use self::error::{Error, FutureResult, Result};
 
-static TOKEN_DUMY_SUR: &'static str = r#"This is not a secret pharse we use public key only"#;
-
 /// Authoring API
 pub struct Author<P, Client> {
 	/// Substrate client
@@ -105,7 +103,7 @@ impl<P, Client> AuthorApi<TxHash<P>, BlockHash<P>> for Author<P, Client>
 	) -> Result<()> {
 		let token_type = token_type.as_str().try_into().map_err(|_| Error::BadKeyType)?;
 		let mut keystore = self.keystore.write();
-		keystore.insert_unknown(token_type, &TOKEN_DUMY_SUR, &token[..])
+		keystore.insert_token(token_type, &token[..])
 			.map_err(|_| Error::KeyStoreUnavailable)?;
 		Ok(())
 	}

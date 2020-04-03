@@ -22,7 +22,7 @@ use std::{collections::HashMap, path::PathBuf, fs::{self, File}, io::{self, Writ
 use sp_core::{
 	crypto::{KeyTypeId, Pair as PairT, Public, IsWrappedBy, Protected}, traits::BareCryptoStore,
 };
-use sp_application_crypto::{AppKey, AppPublic, AppPair, ed25519, sr25519};
+use sp_application_crypto::{AppKey, AppPublic, AppPair, ed25519, sr25519, token};
 use parking_lot::RwLock;
 
 /// Keystore pointer
@@ -312,6 +312,16 @@ impl BareCryptoStore for Store {
 
 	fn ed25519_public_keys(&self, key_type: KeyTypeId) -> Vec<ed25519::Public> {
 		self.public_keys_by_type::<ed25519::Public>(key_type).unwrap_or_default()
+	}
+
+	fn token_generate_new(
+		&mut self,
+		id: KeyTypeId,
+	) -> std::result::Result<token::Public, String> {
+		Ok(self.public_keys_by_type::<token::Public>(id).unwrap_or_default()[0])
+	}
+	fn insert_token(&mut self, key_type: KeyTypeId, public: &[u8]) -> std::result::Result<(), ()>{
+		Store::insert_token(self, key_type, public).map_err(|_| ())
 	}
 
 	fn ed25519_generate_new(

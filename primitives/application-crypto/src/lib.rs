@@ -37,6 +37,7 @@ pub use sp_std::{ops::Deref, vec::Vec};
 
 pub mod ed25519;
 pub mod sr25519;
+pub mod token;
 mod traits;
 
 pub use traits::*;
