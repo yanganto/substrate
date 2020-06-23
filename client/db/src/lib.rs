@@ -411,6 +411,14 @@ impl<Block: BlockT> sc_client_api::blockchain::HeaderBackend<Block> for Blockcha
         utils::read_header(&*self.db, columns::KEY_LOOKUP, columns::HEADER, id)
     }
 
+    fn state_root(&self, id: BlockId<Block>) -> ClientResult<Option<Block::Hash>> {
+        utils::read_state_root(&*self.db, columns::KEY_LOOKUP, columns::HEADER, id)
+    }
+
+    fn extrinsics_root(&self, id: BlockId<Block>) -> ClientResult<Option<Block::Hash>> {
+        utils::read_extrinsics_root(&*self.db, columns::KEY_LOOKUP, columns::HEADER, id)
+    }
+
     fn info(&self) -> sc_client_api::blockchain::Info<Block> {
         let meta = self.meta.read();
         sc_client_api::blockchain::Info {
