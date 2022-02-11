@@ -10,7 +10,7 @@ description = "RPC for the BEEFY Client gadget for substrate"
 [dependencies]
 futures = "0.3.16"
 log = "0.4"
-parking_lot = "0.11"
+parking_lot = "0.12"
 thiserror = "1.0"
 serde = { version = "1.0.136", features = ["derive"] }
 
